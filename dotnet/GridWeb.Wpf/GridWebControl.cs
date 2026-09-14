@@ -10,6 +10,7 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
 {
     private readonly WebView2 _view = new();
     private HostSession? _session;
+    private LocalHostDocument? _hostDocument;
     private Task? _initialization;
     private bool _loading;
     private bool _disposed;
@@ -41,12 +42,14 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
         _view.CoreWebView2.Settings.AreDevToolsEnabled = false;
         _view.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
         _view.CoreWebView2.Settings.AreHostObjectsAllowed = false;
-        _view.CoreWebView2.NavigationStarting += (_, e) => { if (e.Uri != "about:blank") e.Cancel = true; };
+        _view.CoreWebView2.NavigationStarting += (_, e) => { if (e.Uri != LocalHostDocument.VirtualOrigin) e.Cancel = true; };
         _view.CoreWebView2.NewWindowRequested += (_, e) => e.Handled = true;
         _view.CoreWebView2.PermissionRequested += (_, e) => e.State = Microsoft.Web.WebView2.Core.CoreWebView2PermissionState.Deny;
         var navigation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _view.NavigationCompleted += (_, e) => { if (e.IsSuccess) navigation.TrySetResult(); else navigation.TrySetException(new InvalidOperationException("Host navigation failed")); };
-        _view.NavigateToString(HostSession.GetHtml()); await navigation.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        _view.NavigationCompleted += (_, e) => { if (e.IsSuccess) navigation.TrySetResult(); else if (e.WebErrorStatus != Microsoft.Web.WebView2.Core.CoreWebView2WebErrorStatus.OperationCanceled) navigation.TrySetException(new InvalidOperationException("Host navigation failed: " + e.WebErrorStatus)); };
+        _hostDocument = new LocalHostDocument();
+        _view.CoreWebView2.SetVirtualHostNameToFolderMapping("gridweb.invalid", _hostDocument.DirectoryPath, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.DenyCors);
+        _view.CoreWebView2.Navigate(LocalHostDocument.VirtualOrigin); await navigation.Task.WaitAsync(TimeSpan.FromSeconds(20));
         var transport = new DelegateJavaScriptTransport(async (script, token) =>
         {
             token.ThrowIfCancellationRequested();
@@ -87,6 +90,6 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return; _disposed = true;
-        if (_session is not null) await _session.DisposeAsync(); _view.Dispose();
+        if (_session is not null) await _session.DisposeAsync(); _view.Dispose(); _hostDocument?.Dispose();
     }
 }
