@@ -77,6 +77,9 @@
         var warnings = await imported.ImportXlsxAsync(bytes);
         Require((await imported.GetRange("C2", "Sheet1").GetValuesAsync())[0][0].GetInt32() == 35, "XLSX round trip failed.");
         Require((await imported.GetPivotsAsync()).GetArrayLength() == 1, "Native pivot cache was lost.");
+        await imported.ImportXlsxAsync(CompressXlsx(bytes));
+        Require((await imported.GetRange("C2", "Sheet1").GetValuesAsync())[0][0].GetInt32() == 35, "Browser DEFLATE import failed.");
+        Require((await imported.GetRange("H8", "Sheet1").GetValuesAsync())[0][0].GetString() == large, "Compressed Unicode text changed.");
         await using var native = await book.GetNativeRangeAsync("A1", "Sheet1");
         Require(await book.Module.GetAsync<string>(native, "Address") == "A1", "Native reference did not preserve engine identity.");
         var before = (await book.GetInfoAsync()).CanUndo;
@@ -85,6 +88,21 @@
         Require(_form.Workbook?.Contains("Sales") == true && _form.Workbook.Length > 32000, "Full bound workbook was truncated.");
         _details = $"Calculated total 35; pivot North 30; native chart/print; {bytes.Length:N0} XLSX bytes; {warnings.Length} import warnings; full Unicode and EditForm binding verified.";
         _result = "Passed";
+    }
+    private static byte[] CompressXlsx(byte[] bytes)
+    {
+        using var source = new MemoryStream(bytes);
+        using var input = new System.IO.Compression.ZipArchive(source, System.IO.Compression.ZipArchiveMode.Read);
+        using var output = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(output, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            foreach (var entry in input.Entries)
+            {
+                var compressed = zip.CreateEntry(entry.FullName, System.IO.Compression.CompressionLevel.Optimal);
+                using var original = entry.Open(); using var target = compressed.Open(); original.CopyTo(target);
+            }
+        }
+        return output.ToArray();
     }
     private async Task Submit(EditContext context) { await _input!.FlushAsync(); _submissions++; }
     private async Task ImportFile(InputFileChangeEventArgs e)

@@ -1,1 +1,1 @@
-{"name":"GridWeb"}
+{"name":"GridWeb","external":["node:zlib"]}
