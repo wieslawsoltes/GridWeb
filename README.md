@@ -6,80 +6,78 @@
 [![Downloads](https://img.shields.io/npm/dm/@wieslawsoltes/gridweb)](https://www.npmjs.com/package/@wieslawsoltes/gridweb)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A reusable, DOM-independent spreadsheet engine and virtualized web control with an Excel-inspired workbook studio. Plain JavaScript modules, TypeScript declarations, .NET-style observable models and commands, React integration, worker execution, and WPF/WinUI/Avalonia WebView hosts share the same core.
+Reusable headless spreadsheet engine, virtualized Web Component and Excel-inspired workbook studio. Plain JavaScript, TypeScript declarations, .NET-style MVVM and events, React adapter, worker protocol, native WebView hosts and an Office-style batched API share the same core.
 
-**Independent implementation, not Microsoft Excel and not a full drop-in Office.js, COM, VBA or native framework runtime.** See [compatibility](docs/compatibility.md) and [verification](docs/verification.md). Badges reflect remote status; a prepared workflow is not evidence of a successful publication.
+**Independent implementation, not Microsoft Excel or complete Office.js/COM/VBA compatibility.** See the [current compatibility matrix](docs/compatibility.md). No proprietary runtime, artwork or fonts are bundled.
 
-[Workbook Studio](https://wieslawsoltes.github.io/GridWeb/) · [Releases](https://github.com/wieslawsoltes/GridWeb/releases) · [API](docs/api.md) · [Architecture](docs/architecture.md) · [Publishing](docs/publishing.md)
+**[Workbook Studio](https://wieslawsoltes.github.io/GridWeb/)** · [Releases](https://github.com/wieslawsoltes/GridWeb/releases) · [Core API](docs/api.md) · [Calculation](docs/functions.md) · [Office-style API](docs/office-api.md) · [Printing and SVG](docs/printing.md)
 
-## Develop
-
-Requires Node 22.16 or newer and TypeScript 5.8.3 or newer for type checks. The runtime has no mandatory npm dependencies.
+## Install and use
 
 ```sh
-npm ci --ignore-scripts --legacy-peer-deps
-npm install --global typescript@5.8.3
-npm run check
-npm run dev
+npm install @wieslawsoltes/gridweb
 ```
-
-`npm run build` creates modular browser files, `dist/GridWeb-standalone.html`, the embedded `dist/GridWeb-host.html`, and the GitHub Pages site. The standalone studio runs without installation or external downloads. For source ES modules use an HTTP server.
-
-## Reuse the engine and control
 
 ```js
 import { Workbook } from '@wieslawsoltes/gridweb';
 import '@wieslawsoltes/gridweb/controls';
 const book = new Workbook();
 const sheet = book.ActiveWorksheet;
-sheet.GetRange('A1:B2').Values = [[10, 20], [30, 40]];
+sheet.GetRange('A1:B2').Values = [[10,20],[30,40]];
 sheet.GetCell('C1').Formula = '=SUM(A1:B2)';
-console.log(sheet.GetCell('C1').Value); // 100
 const grid = document.createElement('grid-web');
 grid.style.cssText = 'display:block;height:520px';
 grid.Workbook = book;
 document.body.append(grid);
 ```
 
-The package root is headless. `/controls` registers `<grid-web>`, `/react` supplies a React wrapper and hooks, `/io` handles CSV and XLSX, `/worker` supplies the worker/client protocol, and `/host` exposes allowlisted JSON RPC. ESM and Node's synchronous `require(ESM)` share constructor identity.
+The root import is DOM-independent. `/controls` registers `<grid-web>`; `/browser` combines the browser control and core without duplicating model constructors. `/react`, `/worker`, `/host`, `/io`, `/office` and `/printing` provide explicit optional entry points. Node22.16+ supports synchronous require(ESM) with shared constructor identity. React is an optional peer; the core has no mandatory runtime npm dependencies.
 
-## Features
+## Office-style migration
 
-Sparse worksheets, range operations, cross-sheet formulas, dependency invalidation, spill arrays, named expressions, LET/LAMBDA, transactional editing and undo/redo, styles, validation, conditional formatting, tables, sorting/filtering, materialized pivots, goal seek and regression. The control includes native text editing over a virtualized Canvas viewport, resizing, frozen panes, merges, clipboard and autofill, charts, zoom, shared views, themes, and page views.
-
-The five-sheet studio uses the actual core for its workbook, formula bar, ribbon-style commands, inspector, data tools, chart editing, JSON/CSV/XLSX exchange, and print layout. It is not a static mockup.
-
-## React and MVVM
-
-```jsx
-import { GridWeb, useWorkbook, useWorkbookRevision } from '@wieslawsoltes/gridweb/react';
-import { Workbook } from '@wieslawsoltes/gridweb';
-function Editor() {
-  const book = useWorkbook(() => new Workbook());
-  const revision = useWorkbookRevision(book);
-  return <section><p>Revision {revision}</p><GridWeb workbook={book} style={{height:600}} /></section>;
-}
+```js
+import { createExcelApi } from '@wieslawsoltes/gridweb/office';
+const Excel = createExcelApi(book);
+await Excel.run(async context => {
+  const range = context.workbook.worksheets.getActiveWorksheet().getRange('D1');
+  range.formulas = [['=C1*2']];
+  range.format.font.bold = true;
+  range.load('values');
+  await context.sync();
+  console.log(range.values); // [[200]]
+});
 ```
 
-`EventSource.Subscribe`, `PropertyChanged`, `RelayCommand`, `CanExecute`, and explicit disposal support .NET-style host code. Native projects in `dotnet/` embed the same browser engine; they do not reimplement it in C#. See [native hosts](dotnet/README.md).
+This adapter implements explicit queued worksheet/range/format operations, loaded snapshots, null-cell skipping and atomic batch rollback. It is a documented subset, not a replacement for all Office add-in services. The studio's View → Office API example uses it directly.
 
-## Companion libraries
+## Engine and studio
 
-`integrations/` contains real adapters for Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb, and QuikGraphWeb. Install and bundle them with `npm install --prefix integrations`, `npm run build:integrations`, then `npm run build`. The dependency-free studio works without this optional bundle. See [integration status](integrations/README.md).
+Sparse worksheets and ranges; 330 available formula names including arrays, LET/LAMBDA, binary lookups, statistical distributions, matrices, complex and dated financial operations; dependency recalculation; A1/R1C1 conversion; transactional editing/history; styles, validation, conditional formatting, tables, sorting/filtering, materialized pivots, goal seek and regression.
 
-## Verification and distribution
+The virtualized Canvas control provides native editing, pointer/keyboard selections, clipboard/fill, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses this engine for all editing and calculations. Normal, page-layout and page-break views are available.
+
+Print output includes inert SVG charts and chart fragments across pages, table/conditional styling and data bars, fixed cell geometry, fitted A4/Letter/A3/Legal pages, repeated row/column titles, breaks, margins and header/footer tokens. Page Layout → Advanced print opens a printable preview with call-scoped options. Chart SVG exports a real vector chart. Browser typography is not printer-identical Excel layout.
+
+## Frameworks and native hosts
+
+React wrapper and hooks are in `/react`. PascalCase core APIs, PropertyChanged, collection notifications, RelayCommand and disposable bindings support .NET-style JavaScript. `dotnet/` contains a typed client and WPF, WinUI and Avalonia controls and samples embedding the same JavaScript engine. CI compiles the native projects; physical native UI/input/accessibility qualification is a separate boundary.
+
+`integrations/` contains adapters for Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb and QuikGraphWeb. The default studio works offline without those packages. See [companion build instructions](integrations/README.md) for their optional bundle and qualification status.
+
+## Develop and verify
 
 ```sh
-npm test
-npm run typecheck
-npm run build
-npm run test:package
+npm ci --ignore-scripts --legacy-peer-deps
+npm install --global typescript@5.8.3
+npm run check
 python -m pip install -r tests/requirements.txt
 python -m playwright install chromium
 npm run test:browser
-npm run release:pack
+npm run dev
 ```
 
-CI checks Node 22/24, packaged consumers, Chromium interactions, and Windows native project compilation. Native compilation alone does not establish native input, rendering, accessibility or WebView runtime equivalence. Tagged releases publish an exact checksum-verified tarball using `NPM_TOKEN` and npm provenance; release retries verify immutable bytes. GitHub Pages deploys from `main`.
+`npm run build` creates the modular distribution, self-contained studio, embedded host page and Pages site. `npm run release:pack` creates tarball/source/browser archives. Tests cover the engine, public types, installed tarball consumers and actual Chromium interactions; native builds are checked on Windows.
 
-MIT licensed. Original source and third-party references are described in [NOTICE.md](NOTICE.md). No proprietary Microsoft runtime or artwork is bundled.
+Successful main CI triggers checksum-verified immutable npm/GitHub release publication using NPM_TOKEN and provenance. Pages deploys independently. [Release instructions](docs/publishing.md) · [Automatic releases](docs/automatic-releases.md) · [Verification](docs/verification.md) · [Security](SECURITY.md)
+
+Full Excel parity remains unfinished: exhaustive formula and Office semantics, lossless arbitrary XLSX, complete native pivots/drawings/data models, VBA, Power Query/DAX, network coauthoring and printer/native-runtime fidelity. Supported XLSX export regenerates a documented subset; review import warnings. MIT licensed; see [notices](NOTICE.md).
