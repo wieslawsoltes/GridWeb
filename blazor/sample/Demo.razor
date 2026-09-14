@@ -1,0 +1,115 @@
+@page "/"
+@namespace GridWebBlazorSample
+@using GridWeb.Blazor
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+<main>
+    <h1>GridWeb + Blazor</h1>
+    <p>A native spreadsheet with workbook binding, EditForm integration, ranges, formulas, charts, pivots and XLSX interchange.</p>
+    <button id="action" disabled="@(!_ready)" @onclick="Exercise">Run workbook operations</button>
+    <button id="begin-edit" disabled="@(!_ready)" @onclick="BeginEdit">Edit A6</button>
+    <button id="toggle" @onclick="Toggle">@(_show ? "Unmount" : "Mount")</button>
+    <button @onclick="Theme">Switch theme</button>
+    <select aria-label="Spreadsheet view" @bind="_view"><option value="normal">Normal</option><option value="pageBreak">Page breaks</option><option value="pageLayout">Page layout</option></select>
+    <label>Import XLSX <InputFile OnChange="ImportFile" accept=".xlsx" disabled="@(!_ready)" /></label>
+    <EditForm EditContext="_context" OnSubmit="Submit">
+        @if (_ready) { <SpreadsheetToolbar Editor="_input?.Editor" /> }
+        @if (_show) { <SpreadsheetInput @ref="_input" @bind-Value="_form.Workbook" Theme="@_theme" ViewMode="@_view" Ready="Initialize" CellEdited="Edited" DebounceMilliseconds="25" /> }
+        <button type="submit" disabled="@(!_ready)">Commit form</button>
+    </EditForm>
+    <output id="status">@_status</output><output id="result">@_result</output><output id="edit-result">@_editResult</output>
+    <p>@_details</p><p>Bound workbook: @(_form.Workbook?.Length ?? 0) characters. Form submissions: @_submissions.</p>
+    <h2>Shared engine ownership</h2>
+    <WorkbookProvider>
+        <ChildContent Context="book"><Spreadsheet Workbook="book" ReadOnly="true" Style="display:block;height:160px" /></ChildContent>
+        <Loading><p>Initializing a separate workbook without prerender interop.</p></Loading>
+    </WorkbookProvider>
+    <InteropProbe />
+</main>
+@code {
+    private sealed class FormModel { public string? Workbook { get; set; } }
+    private readonly FormModel _form = new();
+    private EditContext _context = default!;
+    private SpreadsheetInput? _input;
+    private bool _show = true, _ready;
+    private string _theme = "light", _view = "normal", _status = "Loading", _result = "", _editResult = "", _details = "";
+    private int _submissions;
+    protected override void OnInitialized() => _context = new(_form);
+    private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
+    private async Task Initialize(IJSObjectReference control)
+    {
+        var book = _input!.Editor!.Client!;
+        await book.NewAsync();
+        await book.GetRange("A1:B4").SetValuesAsync([["Region","Revenue"],["North",10],["North",20],["South",5]]);
+        await book.GetRange("C2").SetFormulasAsync([["=SUM(B2:B4)"]]);
+        await book.GetRange("A1:C1").SetStyleAsync(new { font = new { bold = true }, fill = "#e1efe6" });
+        await book.FreezeAsync(1, 0);
+        _status = "Ready"; _ready = true; _editResult = "";
+    }
+    private async Task BeginEdit() { await _input!.Editor!.SelectAsync("A6", "Sheet1"); await _input.Editor.BeginEditAsync(); }
+    private void Edited(CellEditInfo edit) { if (edit.Row == 5 && edit.Column == 0) _editResult = "Edited A6"; }
+    private async Task Exercise()
+    {
+        var editor = _input!.Editor!; var book = editor.Client!;
+        await _input.FlushAsync();
+        Require(_context.IsModified(), "Native editing did not notify EditContext.");
+        Require((await book.GetRange("A6").GetValuesAsync())[0][0].GetInt32() == 123, "Keyboard edit was not applied.");
+        Require((await book.GetRange("C2").GetValuesAsync())[0][0].GetInt32() == 35, "Native calculation failed.");
+        if ((await book.GetPivotsAsync()).EnumerateArray().Any(x => x.GetProperty("name").GetString() == "Sales")) await book.RemovePivotAsync("Sales", true);
+        if (!(await book.GetWorksheetsAsync()).Any(x => x.Name == "Report")) await book.AddWorksheetAsync("Report");
+        await book.AddPivotAsync("Sales", new("A1:B4","Sheet1"), new("A1","Report"), new() { Rows = ["Region"], Values = [new("Revenue")] });
+        Require((await book.GetRange("B2", "Report").GetValuesAsync())[0][0].GetInt32() == 30, "Pivot result was incorrect.");
+        var chart = await book.AddChartAsync("A1:B4", new { title = "Revenue", type = "column" }, "Sheet1");
+        Require((await book.GetChartSvgAsync("Sheet1", chart.GetProperty("id").GetString()!)).Contains("<svg"), "Native SVG export failed.");
+        Require((await book.GetPrintHtmlAsync("Sheet1")).Contains("print-page"), "Native print generation failed.");
+        await book.ImportCsvAsync("Name,Value\nLiteral,=1+1", "Sheet1", "F1");
+        Require((await book.GetRange("G2", "Sheet1").GetValuesAsync())[0][0].GetString() == "=1+1", "CSV formula injection protection changed.");
+        var large = string.Concat(Enumerable.Repeat("Zażółć🙂", 2000));
+        await book.GetRange("H1:H8", "Sheet1").SetValuesAsync(Enumerable.Range(0,8).Select(_ => new object?[] { large }).ToArray());
+        Require((await book.GetRange("H1:H8", "Sheet1").GetValuesAsync())[7][0].GetString() == large, "Large Unicode values were truncated.");
+        var bytes = await book.ExportXlsxAsync();
+        Require(bytes.Length > 1000 && bytes[0] == 80 && bytes[1] == 75, "XLSX was not a ZIP package.");
+        await using var module = new GridWebModule(JS);
+        await using var imported = await module.CreateWorkbookAsync();
+        var warnings = await imported.ImportXlsxAsync(bytes);
+        Require((await imported.GetRange("C2", "Sheet1").GetValuesAsync())[0][0].GetInt32() == 35, "XLSX round trip failed.");
+        Require((await imported.GetPivotsAsync()).GetArrayLength() == 1, "Native pivot cache was lost.");
+        await imported.ImportXlsxAsync(CompressXlsx(bytes));
+        Require((await imported.GetRange("C2", "Sheet1").GetValuesAsync())[0][0].GetInt32() == 35, "Browser DEFLATE import failed.");
+        Require((await imported.GetRange("H8", "Sheet1").GetValuesAsync())[0][0].GetString() == large, "Compressed Unicode text changed.");
+        await using var native = await book.GetNativeRangeAsync("A1", "Sheet1");
+        Require(await book.Module.GetAsync<string>(native, "Address") == "A1", "Native reference did not preserve engine identity.");
+        var before = (await book.GetInfoAsync()).CanUndo;
+        Require(before && await book.UndoAsync() && await book.RedoAsync(), "Undo/redo failed.");
+        await editor.FlushChangesAsync();
+        Require(_form.Workbook?.Contains("Sales") == true && _form.Workbook.Length > 32000, "Full bound workbook was truncated.");
+        _details = $"Calculated total 35; pivot North 30; native chart/print; {bytes.Length:N0} XLSX bytes; {warnings.Length} import warnings; full Unicode and EditForm binding verified.";
+        _result = "Passed";
+    }
+    private static byte[] CompressXlsx(byte[] bytes)
+    {
+        using var source = new MemoryStream(bytes);
+        using var input = new System.IO.Compression.ZipArchive(source, System.IO.Compression.ZipArchiveMode.Read);
+        using var output = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(output, System.IO.Compression.ZipArchiveMode.Create, true))
+        {
+            foreach (var entry in input.Entries)
+            {
+                var compressed = zip.CreateEntry(entry.FullName, System.IO.Compression.CompressionLevel.Optimal);
+                using var original = entry.Open(); using var target = compressed.Open(); original.CopyTo(target);
+            }
+        }
+        return output.ToArray();
+    }
+    private async Task Submit(EditContext context) { await _input!.FlushAsync(); _submissions++; }
+    private async Task ImportFile(InputFileChangeEventArgs e)
+    {
+        await using var file = e.File.OpenReadStream(32 * 1024 * 1024); using var buffer = new MemoryStream(); await file.CopyToAsync(buffer);
+        var warnings = await _input!.Editor!.Client!.ImportXlsxAsync(buffer.ToArray()); await _input.FlushAsync(); _details = string.Join("; ", warnings);
+    }
+    private void Theme() => _theme = _theme == "light" ? "dark" : "light";
+    private void Toggle() { _show = !_show; _ready = false; _status = _show ? "Loading" : "Unmounted"; _result = ""; _editResult = ""; _view = "normal"; }
+}

@@ -12,3 +12,25 @@ integrations/vendor/
 
 # Private runtime room data must not become source or release assets.
 gridweb-data/
+
+# Reproducible Blazor build outputs (not needed by NuGet consumers).
+blazor/src/*.g.cs
+blazor/src/wwwroot/
+blazor/src/GridWeb.Blazor.csproj
+blazor/sample/InteropProbe.razor
+blazor/sample/Program.cs
+blazor/sample/Sample.csproj
+blazor/sample/_Imports.razor
+blazor/sample/wwwroot/
+blazor/server/
+blazor/tests/Managed/
+blazor/tests/*_test.py
+blazor/tests/*.test.mjs
+!blazor/tests/grid*.test.mjs
+blazor/tests/functions.mjs
+blazor/tests/smoke.py
+blazor/tests/verify_package.py
+blazor/nuget-registry.py
+
+__pycache__/
+*.pyc
