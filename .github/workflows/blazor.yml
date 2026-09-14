@@ -1,0 +1,24 @@
+name: Blazor
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths: ['blazor/**', 'src/**', 'package*.json', '.gitmodules', '.github/workflows/blazor.yml']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the checked-in Blazor version from main
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  blazor:
+    permissions:
+      contents: write
+    uses: wieslawsoltes/Dockyard/.github/workflows/blazor.yml@c833be49d472583b6f56225862e0aa7d201c1da7
+    with:
+      project: blazor/src/GridWeb.Blazor.csproj
+      package_name: GridWeb
+      publish: ${{ inputs.publish || false }}
+    secrets: inherit

@@ -4,6 +4,9 @@
 [![Pages](https://github.com/wieslawsoltes/GridWeb/actions/workflows/pages.yml/badge.svg)](https://github.com/wieslawsoltes/GridWeb/actions/workflows/pages.yml)
 [![npm](https://img.shields.io/npm/v/@wieslawsoltes/gridweb)](https://www.npmjs.com/package/@wieslawsoltes/gridweb)
 [![Downloads](https://img.shields.io/npm/dm/@wieslawsoltes/gridweb)](https://www.npmjs.com/package/@wieslawsoltes/gridweb)
+[![NuGet](https://img.shields.io/nuget/v/GridWeb.Blazor)](https://www.nuget.org/packages/GridWeb.Blazor)
+[![NuGet downloads](https://img.shields.io/nuget/dt/GridWeb.Blazor)](https://www.nuget.org/packages/GridWeb.Blazor)
+[![Blazor](https://github.com/wieslawsoltes/GridWeb/actions/workflows/blazor.yml/badge.svg)](https://github.com/wieslawsoltes/GridWeb/actions/workflows/blazor.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 A reusable headless spreadsheet engine, virtualized Web Component and Excel-inspired workbook studio. JavaScript, TypeScript, .NET-style MVVM, React, workers and native WebView hosts share one core. Office-style batched APIs, authenticated coauthoring, vector printing and managed pivots are optional reusable surfaces.
@@ -31,6 +34,22 @@ document.body.append(grid);
 ```
 
 The root is DOM-independent. `/controls` registers `<grid-web>`; `/browser` includes core/control without duplicate model constructors. `/react`, `/worker`, `/host`, `/io`, `/office`, `/printing` and `/collaboration` expose the other surfaces. The Node service is `/collaboration/server`. Node 22.16+ supports synchronous require(ESM). React is an optional peer; the core has no mandatory runtime npm dependencies.
+
+## Blazor
+
+```sh
+dotnet add package GridWeb.Blazor --version 0.1.0
+```
+
+```razor
+@using GridWeb.Blazor
+<Spreadsheet @bind-Value="workbookJson" Theme="light" Style="display:block;height:520px" />
+@code { private string? workbookJson; }
+```
+
+The .NET 8/.NET 10 package wraps the same native grid/calculation engine in WebAssembly and Interactive Server. It includes workbook/selection binding, `SpreadsheetInput` for EditForm, a Razor toolbar, typed range/pivot/file services, shared/nonvisual providers, native API access, streamed payloads, collaboration and worker assets. NuGet consumers need no npm/CDN or Dockyard dependency. Blazor versions and pipelines are independent of the desktop adapters below.
+
+[Blazor installation and API guide](blazor/README.md) · [Sample](blazor/sample/Demo.razor) · [Release notes](blazor/RELEASE.md)
 
 ## Engine and editor
 
