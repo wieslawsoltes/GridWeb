@@ -2,6 +2,19 @@ name: Release and npm
 on:
   push:
     tags: ['v*']
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing tag matching package.json
+        type: string
+        required: true
+      expected_sha:
+        description: Full verified commit SHA
+        type: string
+        required: true
+    secrets:
+      NPM_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       tag:
