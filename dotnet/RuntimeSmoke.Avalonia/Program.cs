@@ -6,7 +6,11 @@ using GridWeb.Avalonia;
 namespace GridWeb.RuntimeSmoke.Avalonia;
 internal static class Program
 {
- [STAThread] public static int Main(string[] args)=>AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace().StartWithClassicDesktopLifetime(args);
+ [STAThread] public static int Main(string[] args)
+ {
+  try { return AppBuilder.Configure<App>().UsePlatformDetect().LogToTrace().StartWithClassicDesktopLifetime(args); }
+  catch(Exception error) { Checks.Report("Avalonia", error); return 1; }
+ }
 }
 public sealed class App : Application
 {

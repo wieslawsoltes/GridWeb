@@ -13,4 +13,5 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
+  <ItemGroup><Using Include="System.IO" /></ItemGroup>
 </Project>

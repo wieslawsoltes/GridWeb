@@ -43,7 +43,7 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
         _view.CoreWebView2.NewWindowRequested += (_, e) => e.Handled = true;
         _view.CoreWebView2.PermissionRequested += (_, e) => e.State = Microsoft.Web.WebView2.Core.CoreWebView2PermissionState.Deny;
         var navigation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _view.CoreWebView2.NavigationCompleted += (_, e) => { if (e.IsSuccess) navigation.TrySetResult(); else navigation.TrySetException(new InvalidOperationException("Host navigation failed")); };
+        _view.CoreWebView2.NavigationCompleted += (_, e) => { if (e.IsSuccess) navigation.TrySetResult(); else if (e.WebErrorStatus != Microsoft.Web.WebView2.Core.CoreWebView2WebErrorStatus.OperationCanceled) navigation.TrySetException(new InvalidOperationException("Host navigation failed: " + e.WebErrorStatus)); };
         _view.NavigateToString(HostSession.GetHtml()); await navigation.Task.WaitAsync(TimeSpan.FromSeconds(20));
         _session = new HostSession(new DelegateJavaScriptTransport(InvokeOnUiAsync)); _session.Notification += OnNotification;
         _session.Error += (_, e) => Error?.Invoke(this, e); await _session.InitializeAsync(); await ApplyAsync(); Ready?.Invoke(this, EventArgs.Empty);
