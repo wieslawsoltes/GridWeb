@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12</LangVersion>
+    <Version>0.1.0-preview.1</Version>
+    <Authors>GridWeb contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/wieslawsoltes/GridWeb</RepositoryUrl>
+    <PackageProjectUrl>https://wieslawsoltes.github.io/GridWeb/</PackageProjectUrl>
+    <Description>WebView-hosted GridWeb spreadsheet control using the shared JavaScript engine. Preview native qualification.</Description>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>

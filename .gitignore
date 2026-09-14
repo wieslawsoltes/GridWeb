@@ -1,0 +1,11 @@
+node_modules/
+**/node_modules/
+**/bin/
+**/obj/
+dist/
+site/
+artifacts/
+test-results/
+integrations/vendor/
+*.tgz
+.DS_Store

@@ -1,0 +1,26 @@
+import { Workbook, GridViewModel, EventSource, PivotTable, FormulaError, columnName, paginate, shiftFormula } from '@wieslawsoltes/gridweb';
+import { GridWebElement } from '@wieslawsoltes/gridweb/controls';
+import { exportXlsx, importXlsx } from '@wieslawsoltes/gridweb/io';
+import { createHostBridge } from '@wieslawsoltes/gridweb/host';
+import { WorkbookWorkerClient } from '@wieslawsoltes/gridweb/worker';
+const book = new Workbook();
+const sheet = book.Worksheets.Get(0)!;
+sheet.GetRange('A1:B3').Values = [['X', 'Y'], [2, 4], [3, 9]];
+sheet.GetCell('C1').Formula = '=SUM(B2:B3)';
+sheet.GetRange('A1:B1').Format.Font.Bold = true;
+sheet.GetRange('B2:B3').Format.NumberFormat = '$#,##0.00';
+sheet.AddChart('A1:B3', { type: 'line' });
+book.Transaction('Batch', () => sheet.GetCell('A2').Input = 10);
+const sub = book.Changed.Subscribe(event => console.log(event.Revision, event.Changes)); sub.Dispose();
+const vm = new GridViewModel(book); vm.Selection = 'B2'; vm.Undo.Execute();
+const grid = document.createElement('grid-web'); const typed: GridWebElement = grid;
+typed.Workbook = book; typed.DataContext = vm; typed.Selection = 'A1:B3'; typed.ViewMode = 'pageLayout';
+const bridge = createHostBridge(typed); bridge.dispatch(JSON.stringify({ id: 1, method: 'workbook.get' })); bridge.Dispose();
+const pivot = new PivotTable(sheet.GetRange('A1:B3'), { rows: [0], values: [{ column: 1, aggregate: 'sum' }] });
+pivot.WriteTo(sheet.GetRange('F1'));
+const bytes: Uint8Array = exportXlsx(book); const loading: Promise<Workbook> = importXlsx(bytes).then(result => result.workbook);
+const client = new WorkbookWorkerClient(new Worker('worker.js', { type: 'module' })); client.Call<number[][]>('range.values.get', { address: 'A1:B3' }); client.Dispose();
+const changes = new EventSource<number>(); changes.Subscribe(value => console.log(value.toFixed(1)));
+const err: FormulaError = new FormulaError('#REF!'); console.log(err.code, columnName(16383), shiftFormula('A1', 2, 3), paginate(sheet).pages.length, loading);
+// @ts-expect-error invalid chart types are rejected by the public declaration
+sheet.AddChart('A1:B3', { type: 'unsupported' });
