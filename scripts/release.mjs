@@ -4,7 +4,11 @@ await fs.mkdir(out,{recursive:true});for(const n of await fs.readdir(out))if(/\.
 const packed=JSON.parse(execFileSync(npm,['pack','--ignore-scripts','--json','--pack-destination',out],{cwd:root,encoding:'utf8',shell:process.platform==='win32'}))[0];
 const ignore=new Set(['.git','node_modules','bin','obj','artifacts','site','__pycache__']);
 async function walk(dir,prefix='',skipDist=false){const entries={};for(const item of await fs.readdir(dir,{withFileTypes:true})){if(ignore.has(item.name)||(skipDist&&item.name==='dist')||item.name==='patch-current.py'||item.name.endsWith('.log'))continue;const name=prefix+item.name,p=path.join(dir,item.name);if(item.isDirectory())Object.assign(entries,await walk(p,name+'/',skipDist));else entries[name]=await fs.readFile(p);}return entries;}
-const source=await walk(root,'GridWeb/');await fs.writeFile(path.join(out,`GridWeb-${pkg.version}-source.zip`),writeZip(source));
+// Archive only tracked source; never sweep private runtime files into a public release.
+const tracked=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8'}).split('\0').filter(Boolean);
+if(!tracked.length)throw new Error('Source releases require a Git checkout with tracked files');
+const source={};for(const name of tracked){const file=path.join(root,name);const info=await fs.lstat(file);if(!info.isFile())throw new Error('Only regular tracked source files may be archived: '+name);source['GridWeb/'+name]=await fs.readFile(file);}
+Object.assign(source,await walk(path.join(root,'dist'),'GridWeb/dist/'));await fs.writeFile(path.join(out,`GridWeb-${pkg.version}-source.zip`),writeZip(source));
 const browser=await walk(path.join(root,'dist'));browser['LICENSE']=await fs.readFile(path.join(root,'LICENSE'));browser['NOTICE.md']=await fs.readFile(path.join(root,'NOTICE.md'));await fs.writeFile(path.join(out,`GridWeb-${pkg.version}-browser.zip`),writeZip(browser));
 const files=[];for(const name of(await fs.readdir(out)).sort()){if(name==='SHA256SUMS.txt'||name==='release-manifest.json')continue;const bytes=await fs.readFile(path.join(out,name));files.push({name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}
 await fs.writeFile(path.join(out,'SHA256SUMS.txt'),files.map(f=>`${f.sha256}  ${f.name}`).join('\n')+'\n');

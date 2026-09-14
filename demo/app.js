@@ -65,3 +65,5 @@ function enrichRibbon(){
 new MutationObserver(enrichRibbon).observe(ribbon,{childList:true});enrichRibbon();
 // A user-visible API entry point, bound to the current workbook rather than a stale snapshot.
 window.gridwebExtensions={createExcelApi,chartToSVG,paginate,createPrintDocument,officeExample,printOptions};
+
+import './collaboration-ui.js';

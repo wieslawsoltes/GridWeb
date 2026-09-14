@@ -1,0 +1,31 @@
+name: Source snapshot
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Archive tracked source without credentials or working files
+        run: |
+          git archive --format=tar.gz --output="$RUNNER_TEMP/GridWeb-source.tar.gz" HEAD
+          git rev-parse HEAD > "$RUNNER_TEMP/commit.txt"
+          cd "$RUNNER_TEMP"
+          sha256sum GridWeb-source.tar.gz > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-snapshot
+          path: |
+            ${{ runner.temp }}/GridWeb-source.tar.gz
+            ${{ runner.temp }}/commit.txt
+            ${{ runner.temp }}/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
