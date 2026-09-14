@@ -6,7 +6,7 @@ export class SpreadsheetView {
   constructor(host) {
     this.host = host; this.grid = document.createElement('grid-web'); this.grid.style.cssText = 'display:block;width:100%;height:100%';
     this.initialWorkbook = this.grid.Workbook;
-    this.disposed = false; this.initialized = false; this.selectionRevision = 0; this.lastZoom = null;
+    this.disposed = false; this.initialized = false; this.selectionRevision = 0; this.bindingRevision = 0;
     for (const name of ['Changed','BindingChanged','SelectionChanged','CellEdited','ZoomChanged','Error']) this[name] = new EventSource();
     this.listeners = [];
     const listen = (event, fn) => { this.grid.addEventListener(event, fn); this.listeners.push([event, fn]); };
@@ -29,6 +29,7 @@ export class SpreadsheetView {
     const replacing = this.session == null || this.externalSession !== (o.session ?? null);
     if (replacing) {
       const next = o.session ?? new SpreadsheetSession(o.value ?? null);
+      clearTimeout(this.timer); this.bindingRevision++;
       for (const sub of this.subscriptions ?? []) sub.Dispose(); this.detach?.();
       if (this.owned && this.session) await this.session.DisposeAsync();
       if (this.disposed) { if (!o.session) await next.DisposeAsync(); this.check(); }
@@ -36,14 +37,16 @@ export class SpreadsheetView {
       this.detach = next.Attach(this.grid);
       this.initialWorkbook?.Dispose(); this.initialWorkbook = null;
       this.subscriptions = [next.Changed.Subscribe(e => {
-        if (this.disposed || this.applying) return;
+        if (this.disposed) return;
+        this.bindingRevision++;
+        if (this.applying) return;
         this.Changed.Emit(e); clearTimeout(this.timer);
-        if (this.enableBinding) this.timer = setTimeout(() => { if (!this.disposed) this.BindingChanged.Emit({ revision: next.Revision }); }, this.debounce);
+        if (this.enableBinding) this.timer = setTimeout(() => { if (!this.disposed) this.BindingChanged.Emit({ revision: this.bindingRevision }); }, this.debounce);
       }), next.Error.Subscribe(e => this.Error.Emit(e))];
     }
     this.debounce = o.debounceMilliseconds ?? 150; this.enableBinding = o.enableBinding ?? false;
     const force = !this.initialized || this.valueRevision !== (o.valueRevision ?? 0);
-    const stale = !force && o.ackRevision >= 0 && o.ackRevision < this.session.Revision;
+    const stale = !force && o.ackRevision >= 0 && o.ackRevision < this.bindingRevision;
     this.applying = true;
     try {
       if (!o.session && !replacing && !stale && (force || o.value !== this.lastValue)) {
@@ -70,7 +73,7 @@ export class SpreadsheetView {
   }
   GetSession() { this.check(); return this.session; }
   GetNativeControl() { this.check(); return this.grid; }
-  ReadBinding() { this.check(); return this.session.ReadBinding(); }
+  ReadBinding() { this.check(); return { ...this.session.ReadBinding(), revision: this.bindingRevision }; }
   FlushChanges() { this.check(); if (!this.grid.CommitEdit(false)) throw new Error('The active cell failed validation.'); clearTimeout(this.timer); return this.ReadBinding(); }
   Select(address, sheet = null) { this.check(); if (sheet != null) this.session.ActivateWorksheet(sheet); this.grid.Select(address); }
   Focus() { this.check(); this.grid.Focus(); }
