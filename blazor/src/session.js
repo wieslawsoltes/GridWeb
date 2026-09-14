@@ -64,7 +64,13 @@ export class SpreadsheetSession {
     this._selection = address; for (const v of this.views) { if (v.Sheet !== this._book.ActiveWorksheet) v.Sheet = this._book.ActiveWorksheet; v.Select(address); }
     return true;
   }
-  ActivateWorksheet(name) { const s = this.GetWorksheet(name); this._book.ActiveWorksheet = s; for (const v of this.views) if (v.Sheet !== s) v.Sheet = s; return true; }
+  ActivateWorksheet(name) {
+    const s = this.GetWorksheet(name), changed = this._book.ActiveWorksheet !== s;
+    this._book.ActiveWorksheet = s;
+    for (const v of this.views) if (v.Sheet !== s) v.Sheet = s;
+    if (changed) { this.sequence++; this.Changed.Emit(this.Info('Activate worksheet')); }
+    return true;
+  }
   /** Existing allowlisted shared-engine host protocol, with data rather than executable scripts. */
   Invoke(method, args = {}) {
     this.check(); object(args);
