@@ -80,3 +80,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   runtime:
     uses: ./.github/workflows/runtime.yml
+  pivot-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: node tests/generate-pivot-fixtures.mjs
+      - run: dotnet run --project dotnet/PivotSchema.Tests/PivotSchema.Tests.csproj -c Release -- test-results/pivots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pivot-schema-verification
+          path: test-results/pivots/
+          if-no-files-found: error
