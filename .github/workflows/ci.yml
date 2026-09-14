@@ -48,7 +48,7 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
   native-build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -58,13 +58,22 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '[17.0,18.0)'
+          msbuild-architecture: x64
       - run: npm run build
       - name: Compile native controls and samples
         shell: pwsh
         run: |
-          $projects = @('GridWeb.Client', 'GridWeb.Wpf', 'GridWeb.WinUI', 'GridWeb.Avalonia', 'Samples.Wpf', 'Samples.WinUI', 'Samples.Avalonia')
-          foreach ($project in $projects) {
+          dotnet --version
+          foreach ($project in @('GridWeb.Client', 'GridWeb.Wpf', 'GridWeb.Avalonia', 'Samples.Wpf', 'Samples.Avalonia')) {
             dotnet build "dotnet/$project/$project.csproj" -c Release -p:Platform=x64
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          # WinUI PRI/XAML tasks require Visual Studio MSBuild, not dotnet MSBuild.
+          foreach ($project in @('GridWeb.WinUI', 'Samples.WinUI')) {
+            msbuild "dotnet/$project/$project.csproj" /restore /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           dotnet run --project dotnet/GridWeb.Client.Tests/GridWeb.Client.Tests.csproj -c Release
