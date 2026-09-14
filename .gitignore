@@ -9,3 +9,6 @@ test-results/
 integrations/vendor/
 *.tgz
 .DS_Store
+
+# Private runtime room data must not become source or release assets.
+gridweb-data/
