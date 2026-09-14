@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><PackageId>WieslawSoltes.GridWeb.Client</PackageId></PropertyGroup>
+  <ItemGroup><EmbeddedResource Include="../../dist/GridWeb-host.html" LogicalName="GridWeb.Host.html" /></ItemGroup>
+  <Target Name="RequireWebAssets" BeforeTargets="PrepareResources">
+    <Error Condition="!Exists('../../dist/GridWeb-host.html')" Text="Run npm run build at the repository root before building .NET hosts." />
+  </Target>
+</Project>

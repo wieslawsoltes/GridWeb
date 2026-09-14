@@ -1,0 +1,11 @@
+<Window x:Class="GridWeb.Samples.Wpf.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:grid="clr-namespace:GridWeb.Wpf;assembly=GridWeb.Wpf" Title="GridWeb · shared spreadsheet engine" Width="1200" Height="800">
+ <DockPanel>
+  <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8">
+   <TextBlock Text="Selected range" VerticalAlignment="Center"/><TextBox Text="{Binding Selection, UpdateSourceTrigger=PropertyChanged}" Width="120" Margin="8,0"/>
+   <Button Content="Undo" Command="{Binding Undo}" Padding="16,6"/>
+   <Button Content="Save JSON" Click="SaveClicked" Padding="16,6" Margin="8,0"/>
+   <CheckBox Content="Read only" IsChecked="{Binding ReadOnly}" VerticalAlignment="Center"/>
+  </StackPanel>
+  <grid:GridWebControl x:Name="Spreadsheet" Selection="{Binding Selection, Mode=TwoWay}" IsReadOnly="{Binding ReadOnly}" Ready="SpreadsheetReady" Error="SpreadsheetError"/>
+ </DockPanel>
+</Window>

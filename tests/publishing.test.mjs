@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateRelease, validateMetadata, parseChecksumManifest, sha512, sha256} from '../scripts/npm-registry.mjs';
+const pkg = {name: '@wieslawsoltes/gridweb', version: '0.1.0'};
+const bytes = Buffer.from('verified fixture bytes');
+const fixture = () => ({...pkg, dist: {integrity: sha512(bytes), tarball: 'https://registry.npmjs.org/@wieslawsoltes/gridweb/-/gridweb-0.1.0.tgz', attestations: {url:'https://registry.npmjs.org/-/npm/v1/attestations/@wieslawsoltes%2fgridweb@0.1.0'}}});
+test('release inputs match version and full verified SHA', () => assert.doesNotThrow(() => validateRelease('v0.1.0','0.1.0','a'.repeat(40),'a'.repeat(40))));
+for (const tag of ['main','v0.1','v0.1.0;echo bad','v0.1.0\n']) test('reject unsafe release tag '+JSON.stringify(tag), () => assert.throws(()=>validateRelease(tag,'0.1.0')));
+test('release rejects mismatched version', () => assert.throws(()=>validateRelease('v0.2.0','0.1.0')));
+test('release rejects moved or mismatched SHA', () => assert.throws(()=>validateRelease('v0.1.0','0.1.0','a'.repeat(40),'b'.repeat(40))));
+test('registry metadata validates identity and exact immutable bytes', () => assert.equal(validateMetadata(fixture(),pkg,sha512(bytes),true),fixture().dist.tarball));
+test('registry metadata rejects different immutable package bytes', () => assert.throws(()=>validateMetadata(fixture(),pkg,sha512(Buffer.from('different')))));
+test('registry metadata rejects package identity mismatch', () => assert.throws(()=>validateMetadata({...fixture(),name:'other'},pkg,sha512(bytes))));
+for(const url of ['http://registry.npmjs.org/a.tgz','https://example.org/a.tgz','https://user:secret@registry.npmjs.org/a.tgz'])test('registry download rejects unexpected origin '+url, () => {const metadata=fixture();metadata.dist.tarball=url;assert.throws(()=>validateMetadata(metadata,pkg,sha512(bytes)));});
+test('publication verification requires provenance descriptor', () => {const metadata=fixture();delete metadata.dist.attestations;assert.throws(()=>validateMetadata(metadata,pkg,sha512(bytes),true));assert.doesNotThrow(()=>validateMetadata(metadata,pkg,sha512(bytes),false));});
+test('checksum manifest accepts safe unique relative file names', () => {const digest=sha256(bytes);assert.equal(parseChecksumManifest(digest+'  gridweb-0.1.0.tgz\n').get('gridweb-0.1.0.tgz'),digest);});
+for(const name of ['../secret','/absolute','space name','nested/file']) test('checksum manifest rejects unsafe path '+name,()=>assert.throws(()=>parseChecksumManifest(sha256(bytes)+'  '+name)));
+test('checksum manifest rejects duplicate entries',()=>{const line=sha256(bytes)+'  gridweb.tgz\n';assert.throws(()=>parseChecksumManifest(line+line));});

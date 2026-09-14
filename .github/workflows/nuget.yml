@@ -1,0 +1,66 @@
+name: Preview NuGet publication
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Preview version matching dotnet/Directory.Build.props
+        required: true
+        default: 0.1.0-preview.1
+        type: string
+      publish:
+        description: Publish the verified packages to nuget.org
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: nuget
+    env:
+      PACKAGE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Validate preview version
+        shell: pwsh
+        run: |
+          if ($env:PACKAGE_VERSION -notmatch '^\d+\.\d+\.\d+-preview\.\d+$') { throw 'Preview version required' }
+          [xml]$props = Get-Content dotnet/Directory.Build.props
+          if ($props.Project.PropertyGroup.Version -ne $env:PACKAGE_VERSION) { throw 'Version mismatch' }
+      - run: npm install --global typescript@5.8.3
+      - run: npm ci --ignore-scripts --legacy-peer-deps
+      - run: npm run check
+      - name: Build and pack native adapters
+        shell: pwsh
+        run: |
+          foreach ($project in @('GridWeb.Client', 'GridWeb.Wpf', 'GridWeb.WinUI', 'GridWeb.Avalonia')) {
+            dotnet pack "dotnet/$project/$project.csproj" -c Release -p:Platform=x64 -o artifacts/nuget
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          dotnet run --project dotnet/GridWeb.Client.Tests/GridWeb.Client.Tests.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-preview-packages
+          path: artifacts/nuget/*.nupkg
+      - name: Publish preview packages
+        if: inputs.publish
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) { throw 'NUGET_API_KEY is not configured' }
+          foreach ($package in Get-ChildItem artifacts/nuget/*.nupkg) {
+            dotnet nuget push $package.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }

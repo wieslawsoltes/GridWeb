@@ -1,0 +1,98 @@
+{
+  "name": "@wieslawsoltes/gridweb",
+  "version": "0.1.0",
+  "description": "Independent spreadsheet engine, virtualized web control, React/MVVM adapters and .NET WebView hosts",
+  "type": "module",
+  "license": "MIT",
+  "author": "GridWeb contributors",
+  "main": "./src/core.js",
+  "module": "./src/core.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/core.js"
+    },
+    "./controls": {
+      "types": "./types/controls.d.ts",
+      "default": "./src/controls.js"
+    },
+    "./react": {
+      "types": "./types/react.d.ts",
+      "default": "./src/react.js"
+    },
+    "./io": {
+      "types": "./types/io.d.ts",
+      "default": "./src/io.js"
+    },
+    "./host": {
+      "types": "./types/host.d.ts",
+      "default": "./src/host.js"
+    },
+    "./worker": {
+      "types": "./types/worker.d.ts",
+      "default": "./src/worker.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "types",
+    "dist",
+    "docs",
+    "examples",
+    "dotnet",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "./src/controls.js"
+  ],
+  "engines": {
+    "node": ">=22.16"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wieslawsoltes/GridWeb.git"
+  },
+  "homepage": "https://wieslawsoltes.github.io/GridWeb/",
+  "bugs": {
+    "url": "https://github.com/wieslawsoltes/GridWeb/issues"
+  },
+  "keywords": [
+    "spreadsheet",
+    "excel",
+    "grid",
+    "formula",
+    "canvas",
+    "web-components",
+    "react",
+    "mvvm",
+    "dotnet"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "npm test && npm run typecheck && npm run build && npm run test:package",
+    "test:browser": "python tests/browser.py",
+    "test:package": "node scripts/package-test.mjs",
+    "dev": "node scripts/serve.mjs",
+    "release:pack": "node scripts/release.mjs",
+    "build:integrations": "node integrations/build.mjs",
+    "typecheck": "tsc --noEmit --strict --lib es2022,dom --module nodenext --moduleResolution nodenext tests/types.ts"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

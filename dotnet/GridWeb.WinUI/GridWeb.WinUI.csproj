@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0-windows10.0.19041.0</TargetFramework><UseWinUI>true</UseWinUI><EnableMsixTooling>false</EnableMsixTooling><WindowsPackageType>None</WindowsPackageType><Platforms>x64</Platforms><PackageId>WieslawSoltes.GridWeb.WinUI</PackageId></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../GridWeb.Client/GridWeb.Client.csproj"/><PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250606001"/></ItemGroup>
+</Project>
