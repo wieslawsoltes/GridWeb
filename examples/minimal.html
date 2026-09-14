@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GridWeb minimal component</title><style>body{font:14px system-ui;margin:24px}grid-web{display:block;height:520px;border:1px solid #ddd}</style></head><body><h1>One engine, reusable spreadsheet control</h1><grid-web id="grid"></grid-web><script type="module">
+import {Workbook} from '../src/core.js';
+import '../src/controls.js';
+const book=new Workbook();const sheet=book.ActiveWorksheet;
+sheet.GetRange('A1:C3').Values=[['Item','Quantity','Price'],['North',10,20],['South',12,30]];
+sheet.GetRange('D2:D3').Formulas=[['=B2*C2'],['=B3*C3']];
+sheet.GetRange('A1:D1').SetStyle({font:{bold:true,color:'#ffffff'},fill:'#107c41'});
+document.querySelector('#grid').Workbook=book;
+</script></body></html>
