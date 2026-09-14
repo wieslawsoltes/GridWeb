@@ -1,6 +1,6 @@
 # GridWeb.Blazor
 
-[![NuGet](https://img.shields.io/nuget/v/GridWeb.Blazor)](https://www.nuget.org/packages/GridWeb.Blazor)
+[![GridWeb.Blazor on NuGet](https://img.shields.io/nuget/v/GridWeb.Blazor?label=GridWeb.Blazor&logo=nuget)](https://www.nuget.org/packages/GridWeb.Blazor)
 [![NuGet downloads](https://img.shields.io/nuget/dt/GridWeb.Blazor)](https://www.nuget.org/packages/GridWeb.Blazor)
 [![Blazor CI](https://github.com/wieslawsoltes/GridWeb/actions/workflows/blazor.yml/badge.svg)](https://github.com/wieslawsoltes/GridWeb/actions/workflows/blazor.yml)
 
@@ -104,14 +104,15 @@ git submodule update --init --recursive
 npm ci
 npm run build
 node blazor/build.mjs
-dotnet pack blazor/src/GridWeb.Blazor.csproj -c Release -o artifacts/nuget
-dotnet run --project blazor/sample/Sample.csproj
-# Or: dotnet run --project blazor/server/Server.csproj
+cd blazor
+dotnet pack src/GridWeb.Blazor.csproj -c Release -o ../artifacts/nuget
+dotnet run --project sample/Sample.csproj
+# Or: dotnet run --project server/Server.csproj
 ```
 
-Use the .NET 10 SDK plus .NET 8 targeting support. Generated common C#/JS, project files and sample host infrastructure come from the exact Dockyard source commit in the gitlink. This is build-time source reuse, **not a Dockyard NuGet/runtime dependency**. `Spreadsheet.cs`, `GridWorkbook.cs`, models, provider, toolbar, native adapters, sample and GridWeb-specific tests are maintained here.
+Use the .NET 10 SDK plus .NET 8 targeting support. Run .NET commands from `blazor/`, whose `global.json` selects .NET 10 without changing the root .NET 8 pin used by desktop adapters. Generated common C#/JS, project files and sample host infrastructure come from the exact Dockyard source commit in the gitlink. This is build-time source reuse, **not a Dockyard NuGet/runtime dependency**. `Spreadsheet.cs`, `GridWorkbook.cs`, models, provider, toolbar, native adapters, sample and GridWeb-specific tests are maintained here.
 
-CI builds the actual multi-target `.nupkg`, verifies payloads, runs native/interop tests, restores package consumers and exercises both hosts in Chromium at non-root paths. The sample covers keyboard edits, EditForm notifications, formula calculation, native pivots/charts/printing, safe CSV, large Unicode transfers, XLSX round trips and remounting, in addition to the shared lifecycle/template suite.
+CI builds the actual multi-target `.nupkg`, verifies payloads, runs native/interop tests, restores package consumers and exercises both hosts in Chromium at non-root paths. The sample covers keyboard edits, EditForm notifications, formula calculation, native pivots/charts/printing, safe CSV, large Unicode transfers, compressed XLSX round trips and remounting, in addition to the shared lifecycle/template suite. Additional tests exercise ownership changes, stale bindings and the actual authenticated HTTP collaboration service.
 
 `blazor/Version.props` versions this package independently of npm and the existing `dotnet/` desktop adapters. Version-changing main merges publish using `NUGET_API_KEY` (`NUGET_TOKEN`/`NUGET_KEY` aliases), compare every public NuGet payload member, then create `blazor-v*` releases with packages, symbols, runnable samples and SHA-256 checksums. Retry only the failed original publish job after a delayed upload; do not rebuild/reuse an immutable version. Missing secrets or mismatching payloads fail the release.
 

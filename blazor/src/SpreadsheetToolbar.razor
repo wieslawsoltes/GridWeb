@@ -2,13 +2,13 @@
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
 <div role="toolbar" aria-label="Spreadsheet commands" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;padding:.5rem">
-    <button type="button" disabled="@(!Ready)" @onclick="Undo">Undo</button>
-    <button type="button" disabled="@(!Ready)" @onclick="Redo">Redo</button>
+    <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="Undo">Undo</button>
+    <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="Redo">Redo</button>
     <button type="button" disabled="@(!Ready)" @onclick="Calculate">Calculate</button>
     <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="Bold">Bold</button>
     <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="Merge">Merge</button>
     <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="Unmerge">Unmerge</button>
-    <button type="button" disabled="@(!Ready)" @onclick="RefreshPivots">Refresh pivots</button>
+    <button type="button" disabled="@(!Ready || Editor!.ReadOnly)" @onclick="RefreshPivots">Refresh pivots</button>
     <input aria-label="Cell or range address" @bind="Address" style="width:7rem" />
     <button type="button" disabled="@(!Ready)" @onclick="Select">Go</button>
     <input aria-label="Formula or cell input" @bind="Input" style="min-width:15rem;flex:1" />
