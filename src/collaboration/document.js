@@ -84,7 +84,7 @@ export function applyDocument(book, document) {
   if(book._transaction)fail('BUSY','Cannot synchronize within an active local transaction');
   const validated=Workbook.FromJSON(document),previous=new Map(book._sheets.map(s=>[s.Id,s])),active=book.ActiveWorksheet?.Id;
   try {
-    book._sheets=validated._sheets.map(source=>{const target=previous.get(source.Id)??source;target.Workbook=book;target._name=source.Name;target._cells=source._cells;target._meta=source._meta;return target;});
+    book._sheets=validated._sheets.map(source=>{const target=previous.get(source.Id)??source;target.Workbook=book;target._name=source.Name;target._cells=source._cells;target._formulaCells=new Set(source._formulaCells);target._used=null;target._filtered=new Set(source._filtered);target._meta=source._meta;return target;});
     book.Name=validated.Name;book.Locale=validated.Locale;book._names=new Map(validated._names);
     book.ActiveWorksheet=book._sheets.find(s=>s.Id===active)??book._sheets[0];
     // Inverse history closures can refer to records changed remotely. Never replay stale inverses.

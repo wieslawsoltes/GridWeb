@@ -13,11 +13,14 @@ export class CollaborationSession {
     if(endpoint.protocol!=='https:'&&!(endpoint.protocol==='http:'&&['localhost','127.0.0.1','[::1]'].includes(endpoint.hostname)))throw new TypeError('Use HTTPS, except for loopback development');
     if(!/^[-\w]{1,80}$/.test(room??''))throw new TypeError('Invalid room name');
     if(typeof token!=='string'||!token)throw new TypeError('Authentication token required');
-    this.Workbook=book;this.Url=endpoint.href.replace(/\/$/,'');this.Room=room;this._token=token;this._fetch=fetcher;this._storage=storage;
+    this.Workbook=book;this.Url=endpoint.href.replace(/\/$/,'');this.Room=room;this._token=token;this._fetch=fetcher.bind(globalThis);this._storage=storage;
     this._key=storageKey??'gridweb.collaboration:'+this.Url+':'+room;this.ClientId=clientId??uuid();this.AutoSync=autoSync;
     this.Changed=new EventSource();this.Conflicted=new EventSource();this.PresenceChanged=new EventSource();this.Error=new EventSource();
     this.Status='disconnected';this.Conflict=null;this._base=null;this._pending=null;this._exclusive=false;this._structuralVersion=0;this._applying=false;this._disposed=false;this._connected=false;this._flight=null;this._controller=new AbortController();this._desiredRevision=-1;this._timer=null;
   }
+  get AutoSync(){return this._autoSync;}
+  set AutoSync(value){if(typeof value!=='boolean')throw new TypeError('AutoSync must be boolean');this._autoSync=value;if(!value)clearTimeout(this._timer);else if(this._connected&&!this._disposed){this._schedule();this._startEvents();}}
+  _startEvents(){if(!this._eventFlight)this._eventFlight=this._events().finally(()=>this._eventFlight=null);}
   _state(status){this.Status=status;this.Changed.Emit({status,revision:this.Revision,pending:this.HasPendingChanges});}
   get Revision(){return this._base?.revision??-1;}
   get HasPendingChanges(){if(!this._base)return false;const d=diffDocuments(this._base.document,this.Workbook.ToJSON(),{exclusive:this._exclusive});return !!this._pending||d.kind==='replace'||!!d.changes.length;}
@@ -45,7 +48,7 @@ export class CollaborationSession {
     this._sub=this.Workbook.Changed.Subscribe(e=>{if(this._applying)return;if(structural(e)){this._exclusive=true;this._structuralVersion++;}this._persist();this._state(this.Conflict?'conflict':'pending');this._schedule();});
     this._persist();this._state('connected');
     // Do not overwrite a saved in-flight request: retry its immutable identity first.
-    await this.Sync();if(this.AutoSync)this._events();return this;
+    await this.Sync();if(this.AutoSync)this._startEvents();return this;
     } catch(e) {if(!this._connected)this._state('error');throw e;} finally {this._connecting=false;}
   }
   _schedule(delay=150){if(!this.AutoSync||this._disposed||this.Conflict||this.Status==='error')return;clearTimeout(this._timer);this._timer=setTimeout(()=>{this.Sync().catch(e=>this.Error.Emit(e));},delay);this._timer.unref?.();}
