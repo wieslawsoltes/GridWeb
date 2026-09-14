@@ -1,0 +1,99 @@
+name: Runtime qualification
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  frameworks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        react: ['18.3.1', '19.0.0']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install actual framework and companion packages
+        env:
+          REACT_VERSION: ${{ matrix.react }}
+        run: |
+          npm install --prefix integrations --ignore-scripts --no-audit --no-fund
+          npm install --prefix integrations --no-save --ignore-scripts --no-audit --no-fund "react@$REACT_VERSION" "react-dom@$REACT_VERSION"
+      - run: npm run build:integrations
+      - run: npm run build
+      - run: node integrations/build-smoke.mjs
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: Test actual framework and companion lifecycles
+        run: |
+          export CHROMIUM_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          python tests/frameworks-browser.py
+      - name: Preserve source and current test evidence
+        if: always()
+        run: |
+          mkdir -p test-results
+          git archive --format=zip --output=test-results/current-source.zip HEAD
+          npm test > test-results/core-current.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frameworks-react-${{ matrix.react }}
+          path: |
+            test-results/
+            site/runtime-checks/
+            integrations/package-lock.json
+  native:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [Wpf, WinUI, Avalonia]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '[17.0,18.0)'
+          msbuild-architecture: x64
+      - run: npm run build
+      - name: Compile and run actual native WebView
+        env:
+          NATIVE_FRAMEWORK: ${{ matrix.framework }}
+        shell: pwsh
+        run: |
+          $project = "RuntimeSmoke.$env:NATIVE_FRAMEWORK"
+          if ($env:NATIVE_FRAMEWORK -eq 'WinUI') {
+            msbuild "dotnet/$project/$project.csproj" /restore /m /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          } else {
+            dotnet build "dotnet/$project/$project.csproj" -c Release -p:Platform=x64
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force test-results | Out-Null
+          $env:GRIDWEB_SMOKE_REPORT = Join-Path $pwd "test-results/native-$env:NATIVE_FRAMEWORK.json"
+          $executable = Get-ChildItem "dotnet/$project/bin/x64/Release" -Recurse -Filter "$project.exe" | Select-Object -First 1
+          if (-not $executable) { throw 'Native executable was not built' }
+          $process = Start-Process $executable.FullName -PassThru
+          if (-not $process.WaitForExit(120000)) { Stop-Process -Id $process.Id -Force; throw 'Native smoke process timed out' }
+          if (-not (Test-Path $env:GRIDWEB_SMOKE_REPORT)) { throw "Native app exited $($process.ExitCode) without its report" }
+          Get-Content $env:GRIDWEB_SMOKE_REPORT
+          $report = Get-Content $env:GRIDWEB_SMOKE_REPORT | ConvertFrom-Json
+          if ($process.ExitCode -ne 0 -or $report.error -or $report.passed.Count -lt 13) { throw 'Native runtime qualification failed' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-runtime-${{ matrix.framework }}
+          path: test-results/
+          if-no-files-found: warn

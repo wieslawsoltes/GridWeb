@@ -1,5 +1,5 @@
 {
  "name":"gridweb-companion-workspace","private":true,"type":"module",
  "dependencies":{"@wieslawsoltes/dockyard":"0.1.0","@wieslawsoltes/treedatagridweb":"0.1.0","@wieslawsoltes/dynamicdataweb":"0.1.1","@wieslawsoltes/ribbon-web":"0.1.1","@wieslawsoltes/reactiveweb":"0.2.0","@wieslawsoltes/rbushweb":"0.1.1","@wieslawsoltes/quikgraphweb":"0.2.0","rxjs":"7.8.2"},
- "devDependencies":{"esbuild":"0.25.12"}
+ "devDependencies":{"esbuild":"0.25.12","react":"19.0.0","react-dom":"19.0.0"}
 }

@@ -78,3 +78,5 @@ jobs:
           }
           dotnet run --project dotnet/GridWeb.Client.Tests/GridWeb.Client.Tests.csproj -c Release
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  runtime:
+    uses: ./.github/workflows/runtime.yml

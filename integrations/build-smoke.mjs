@@ -1,0 +1,6 @@
+import {build} from './node_modules/esbuild/lib/main.js';
+import fs from 'node:fs/promises';import path from 'node:path';
+const out=path.resolve(import.meta.dirname,'../site/runtime-checks');await fs.mkdir(out,{recursive:true});
+await build({entryPoints:[path.join(import.meta.dirname,'runtime-smoke.js')],nodePaths:[path.join(import.meta.dirname,'node_modules')],bundle:true,format:'esm',platform:'browser',target:['es2022'],outfile:path.join(out,'entry.js'),loader:{'.css':'text'},legalComments:'linked'});
+await fs.writeFile(path.join(out,'index.html'),'<!doctype html><html lang="en"><meta charset="utf-8"><title>GridWeb framework qualification</title><style>body{font:14px system-ui;margin:16px}#workspace{position:relative;height:560px;display:flex;min-height:0}#document{height:100%;min-height:0;width:100%}#inspector{width:240px;padding:16px}#react-root{height:350px;border:1px solid #ddd;margin-top:24px}button{cursor:pointer}</style><h1>Installed-package runtime qualification</h1><div id="ribbon"></div><div id="companion-ribbon"></div><main id="workspace"><section id="document"></section><aside id="inspector">Shared workbook inspector</aside></main><h2>React shared engine</h2><div id="react-root"></div><script type="module" src="./entry.js"></script></html>');
+console.log('Built real React and seven-package integration test page.');
