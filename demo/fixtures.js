@@ -1,23 +1,29 @@
-import {Workbook, PivotTable} from '../src/core.js';
+import {createShowcase as baselineShowcase} from './fixtures-base.js';
+export {createLargeShowcase} from './fixtures-base.js';
 export function createShowcase(){
- const book=new Workbook({name:'Northstar · Operating plan'}),s=book.Worksheets.Get(0);s.Name='Operating plan';
- book.Transaction('Create showcase',()=>{
-  const inputs=book.Worksheets.Add('Assumptions');inputs.GetRange('A1:C8').Values=[['ASSUMPTIONS','Value','Notes'],['Annual target',1480000,'Illustrative planning data'],['Tax rate',.21,'Editable model input'],['Growth target',.12,'Used in planning formulas'],['Cost ratio',.62,'Variable cost / revenue'],['Discount rate',.08,'Used by NPV examples'],['Scenario','Base','Choose Base, Growth or Lean'],['Owner','Planning team','Local workbook only']];
-  inputs.AddValidation('B7',{type:'list',values:['Base','Growth','Lean']});inputs.GetRange('B3:B6').Format.NumberFormat='0.0%';inputs.GetRange('B2').Format.NumberFormat='$#,##0';inputs.SetColumnWidth(0,210);inputs.SetColumnWidth(1,150);inputs.SetColumnWidth(2,330);inputs.GetRange('A1:C1').SetStyle({fill:'#107c41',font:{bold:true,color:'#ffffff'}});inputs.FreezePanes(1,1);
-  book.DefineName('TaxRate',"='Assumptions'!$B$3");book.DefineName('Double', '=LAMBDA(x,x*2)');
-  s.GetRange('A1:F2').Merge();s.GetCell('A1').Value='Operating plan  /  FY 2026';s.GetRange('A1:F2').SetStyle({font:{size:23,bold:true,color:'#1c4933'},fill:'#f3f8f4'});s.SetRowHeight(0,32);s.SetRowHeight(1,26);
-  s.GetRange('A3:F3').Merge();s.GetCell('A3').Value='Northstar Studio  •  Synthetic sample data  •  Edit any input to recalculate';s.GetCell('A3').Style={font:{color:'#6e7f74',size:10}};
-  s.GetRange('A5:F5').Values=[['Month','Planned','Actual','Variance','Margin','Status']];s.GetRange('A6:C17').Values=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>[m,95000+i*4500,[98400,101200,106900,105100,119500,124000,129600,135200,137900,143400,152300,166200][i]]);
-  for(let r=6;r<=17;r++){s.GetCell('D'+r).Formula=`C${r}-B${r}`;s.GetCell('E'+r).Formula=`(C${r}-C${r}*Assumptions!$B$5)/C${r}`;s.GetCell('F'+r).Formula=`IF(D${r}>=0,"On track","Review")`;}
-  s.AddTable('A5:F17','OperatingPlan');s.GetRange('B6:D20').Format.NumberFormat='$#,##0;($#,##0)';s.GetRange('E6:E20').Format.NumberFormat='0.0%';s.GetRange('A19:F19').SetStyle({font:{bold:true},fill:'#e1efe6'});s.GetCell('A19').Value='Full year';s.GetCell('B19').Formula='SUM(B6:B17)';s.GetCell('C19').Formula='SUM(C6:C17)';s.GetCell('D19').Formula='C19-B19';s.GetCell('E19').Formula='AVERAGE(E6:E17)';s.GetCell('F19').Formula='IF(D19>0,"Ahead of plan","Below plan")';s.GetCell('A21').Value='Net after tax';s.GetCell('C21').Formula='C19*(1-TaxRate)';s.GetCell('C21').Style={numberFormat:'$#,##0',font:{bold:true,color:'#107c41'}};
-  s.AddConditionalFormat('D6:D17',{type:'cellValue',operator:'lessThan',value:0,style:{font:{color:'#bc3434'},fill:'#fff0ed'}});s.AddConditionalFormat('D6:D17',{type:'dataBar',color:'#71bd8c'});s.AddConditionalFormat('F6:F17',{type:'cellValue',operator:'equal',value:'Review',style:{fill:'#fff1d6',font:{color:'#95641c'}}});
-  s.GetCell('C8').Comment='Synthetic actuals. Change this value and watch formulas, totals and charts update.';s.AddValidation('B6:C17',{type:'number',min:0,max:10000000,message:'Revenue must be between 0 and 10,000,000.'});s.FreezePanes(5,1);
-  for(let c=0;c<6;c++)s.SetColumnWidth(c,[146,112,112,112,96,125][c]);s.SetColumnWidth(6,30);
-  s.AddChart('A5:C17',{title:'Revenue performance',type:'column',row:4,column:7,width:455,height:270});s.GetRange('H18:L18').Merge();s.GetCell('H18').Value='MODEL NOTES';s.GetCell('H18').Style={font:{bold:true,size:10,color:'#45614f'}};s.GetRange('H20:L22').Merge();s.GetCell('H20').Value='One engine, every view.\nCharts, formulas, the ribbon and the inspector\nall read and edit the same workbook model.';s.GetCell('H20').Style={wrapText:true,font:{size:11,color:'#6e7f74'},fill:'#f4f8f5'};
-  s._setMeta('print',{area:s.GetRange('A1:F21').Bounds,paper:'A4',orientation:'portrait',scale:.9,repeatRows:5});
-  const lab=book.Worksheets.Add('Formula lab');lab.GetRange('A1:C1').Values=[['FUNCTION LAB','Result','Formula / behavior']];const cases=[['Arithmetic','=2^3^2','Excel precedence: left-associative exponentiation'],['Conditional','=IF(1<2,"Ready",1/0)','Lazy branching'],['Named parameter','=TaxRate','Cross-sheet defined name'],['Named lambda','=Double(21)','User-defined LAMBDA'],['LET','=LET(x,7,x*x)','Local variables'],['Lookup','=XLOOKUP("Mar",\'Operating plan\'!A6:A17,\'Operating plan\'!C6:C17)','Cross-sheet lookup'],['Conditional sum','=SUMIF(\'Operating plan\'!F6:F17,"On track",\'Operating plan\'!C6:C17)','Criteria aggregation'],['Present value','=PV(0.08/12,36,-500)','Financial calculation'],['Date','=DATE(2026,9,13)','1900 date system'],['Error handling','=IFERROR(1/0,"Handled")','Errors are values, not script execution'],['Text','=TEXTJOIN(" · ",TRUE,"GridWeb","Web","Desktop")','Text functions'],['Array sum','=SUMPRODUCT({1,2,3},{4,5,6})','Matrix arguments']];lab.GetRange('A2:C13').Values=cases.map(([name,,description])=>[name,null,description]);cases.forEach(([,f],i)=>lab.GetCell(i+1,1).Formula=f);lab.GetCell('B10').Style={numberFormat:'yyyy-mm-dd'};lab.GetRange('A16:D16').Values=[['Dynamic array','Column 2','Column 3','Column 4']];lab.GetCell('A17').Formula='SEQUENCE(6,4,1,1)';lab.GetRange('F16:H16').Values=[['MAP / LAMBDA',null,null]];lab.GetCell('F17').Formula='MAP(SEQUENCE(6,3),LAMBDA(x,x^2))';lab.GetRange('A1:C1').SetStyle({fill:'#107c41',font:{bold:true,color:'#fff'}});lab.GetRange('A16:H16').SetStyle({fill:'#e1efe6',font:{bold:true}});lab.SetColumnWidth(0,190);lab.SetColumnWidth(1,160);lab.SetColumnWidth(2,430);lab.FreezePanes(1,0);
-  const data=book.Worksheets.Add('Transactions');const departments=['Design','Engineering','Operations','Sales'],regions=['North','West','East'];data.GetRange('A1:F81').Values=[['Department','Region','Quarter','Revenue','Cost','Owner'],...Array.from({length:80},(_,i)=>[departments[i%4],regions[i%3],'Q'+(Math.floor(i/20)+1),6500+(i*827)%17000,2000+(i*359)%6000,['Alex','Morgan','Sam','Casey'][i%4]])];data.AddTable('A1:F81','Transactions');data.GetRange('D2:E81').Format.NumberFormat='$#,##0';data.FreezePanes(1,1);data.GetRange('A1:F81').Format.ColumnWidth=126;data.AddValidation('A2:A81',{type:'list',values:departments});
-  const pivot=book.Worksheets.Add('Pivot summary');new PivotTable(data.UsedRange,{rows:['Department'],columns:['Quarter'],values:[{column:'Revenue',aggregate:'sum',name:'Revenue'}]}).WriteTo(pivot.GetRange('A1'));pivot.GetRange('A1:E1').SetStyle({fill:'#107c41',font:{bold:true,color:'#fff'}});pivot.GetRange('B2:E5').Format.NumberFormat='$#,##0';pivot.GetRange('A1:E5').Format.ColumnWidth=155;pivot.AddChart('A1:E5',{title:'Department revenue by quarter',type:'bar',row:7,column:0,width:730,height:350});pivot.GetCell('A7').Value='Pivot results are materialized. Data → Pivot table refreshes from Transactions.';
- });book.ActiveWorksheet=s;book.ClearHistory();return book;
+  const book=baselineShowcase(),lab=book.Worksheets.Get('Formula lab');
+  const cases=[
+    ['Binary lookup','=XMATCH(35,{10,20,30,40},-1,2)','Binary ascending lookup, next smaller'],
+    ['R1C1 address','=ADDRESS(2,3,2,FALSE)','Absolute row; relative column'],
+    ['Normal quantile','=NORM.S.INV(0.975)','Inverse standard normal distribution'],
+    ['Student t tail','=T.DIST.2T(2.306004135,8)','Two-tailed probability'],
+    ['Matrix determinant','=MDETERM({1,2;3,4})','Pivoted elimination'],
+    ['48-bit arithmetic','=BITLSHIFT(1,40)','No signed 32-bit truncation'],
+    ['Complex multiplication','=IMPRODUCT("1+i","1-i")','Complex arithmetic'],
+    ['International workdays','=NETWORKDAYS.INTL(DATE(2026,9,7),DATE(2026,9,13),"0000011")','Weekend mask starts Monday'],
+    ['Unicode text search','=TEXTBEFORE("ß.A.tail","a",1,1)','Original string offsets preserved'],
+    ['Dated cash flows','=XIRR({-100,110},{DATE(2025,1,1),DATE(2026,1,1)})','Iterative dated rate of return'],
+  ];
+  book.Transaction('Calculation compatibility examples',()=>{
+    lab.GetRange('A26:C26').Values=[['CALCULATION COMPATIBILITY','Result','Behavior']];
+    lab.GetRange('A26:C26').SetStyle({fill:'#107c41',font:{bold:true,color:'#ffffff'}});
+    for(const [i,[label,formula,description]]of cases.entries()){
+      lab.GetCell(i+26,0).Value=label;lab.GetCell(i+26,1).Formula=formula;lab.GetCell(i+26,2).Value=description;
+    }
+    lab.GetCell('E27').Formula='=XLOOKUP(2,{1;2},{10,11;20,21})';
+    lab.GetCell('E30').Formula='=ABS({-1,-2;-3,-4})';
+    lab.GetCell('E34').Formula='=WRAPROWS({1,2,3,4,5},3,0)';
+    lab.GetCell('E26').Value='Spill examples';
+  });
+  book.ClearHistory();return book;
 }
-export function createLargeShowcase(count=20000){const w=new Workbook({name:'Sparse workbook · '+count.toLocaleString()+' rows'}),s=w.ActiveWorksheet;s.Name='Large data';w.Transaction('Generate data',()=>{s.GetRange('A1:D1').Values=[['Item','Quantity','Unit price','Value']];for(let r=1;r<=count;r++){s.GetCell(r,0).Value='Item '+r;s.GetCell(r,1).Value=1+r%25;s.GetCell(r,2).Value=10+r%73;s.GetCell(r,3).Formula=`B${r+1}*C${r+1}`;}s.FreezePanes(1,1);s.GetRange('A1:D1').SetStyle({fill:'#107c41',font:{bold:true,color:'#fff'}});s.GetCell('XFD1048576').Value='Last address';});w.ClearHistory();return w;}

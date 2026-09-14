@@ -44,7 +44,7 @@ function betaI(x, a, b) {
   return x < (a + 1) / (a + b + 2) ? front * betaFraction(a, b, x) / a : 1 - front * betaFraction(b, a, 1 - x) / b;
 }
 function inverseCDF(p, fn, low, high) {
-  for (let i = 0; i < 160; i++) { const middle = low + (high - low) / 2; if (middle === low || middle === high) return middle; if (fn(middle) < p) low = middle; else high = middle; } return (low + high) / 2;
+  for (let i = 0; i < 2048; i++) { const middle = low + (high - low) / 2; if (middle === low || middle === high) return middle; if (fn(middle) < p) low = middle; else high = middle; } return (low + high) / 2;
 }
 const normalCDF = x => x === 0 ? .5 : x < 0 ? .5 * gammaP(.5, x * x / 2, true) : 1 - .5 * gammaP(.5, x * x / 2, true);
 const chooseLog = (n, k) => logGamma(n + 1) - logGamma(k + 1) - logGamma(n - k + 1);
