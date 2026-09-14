@@ -2,7 +2,7 @@ import {Worker} from 'node:worker_threads';
 import {CollaborationError} from './document.js';
 /** Bounded worker pool: expensive or adversarial calculations cannot block HTTP/authentication. */
 export function createValidationPool({timeoutMs=5000,size=2,maxQueue=32}={}) {
-  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000||!Number.isInteger(size)||size<1||size>8)throw new RangeError('Invalid validation limits');
+  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000||!Number.isInteger(size)||size<1||size>8||!Number.isInteger(maxQueue)||maxQueue<1||maxQueue>128)throw new RangeError('Invalid validation limits');
   let closed=false;const queue=[],slots=[];
   const start=slot=>{
     slot.worker=new Worker(new URL('./validation-worker.js',import.meta.url),{resourceLimits:{maxOldGenerationSizeMb:128,maxYoungGenerationSizeMb:32}});

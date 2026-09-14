@@ -19,6 +19,8 @@ export class CollaborationStore {
     if(!request||!/^[-\w]{1,100}$/.test(request.id??'')||!/^[-\w]{1,100}$/.test(request.clientId??'')||!Number.isSafeInteger(request.baseRevision)||request.baseRevision<0||!Number.isSafeInteger(request.epoch)||request.epoch<0)throw new CollaborationError('INVALID','Invalid commit envelope');
     const identity=actor+':'+request.clientId+':'+request.id, payload=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(request))))).map(b=>b.toString(16).padStart(2,'0')).join(''), receipt=state.receipts.find(r=>r.identity===identity);
     if(receipt){if(receipt.payload!==payload)throw new CollaborationError('INVALID','Commit identity reused for different edits');return {...this._view(state),appliedRevision:receipt.revision,duplicate:true};}
+    // Unknown retries older than the retained receipts need explicit rebase, never blind replay.
+    if(request.baseRevision < Math.max(0,state.revision-128))throw new CollaborationError('CONFLICT','Commit history expired; refresh and explicitly resolve pending edits',[{field:'history'}]);
     if(request.baseRevision>state.revision)throw new CollaborationError('INVALID','Client revision is ahead of the room');
     if(request.epoch!==state.epoch)throw new CollaborationError('CONFLICT','Worksheet structure changed; refresh before applying edits',[{field:'structure',epoch:state.epoch}]);
     let document,epoch=state.epoch;

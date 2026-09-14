@@ -32,17 +32,21 @@ export class CollaborationSession {
   }
   _apply(document){const difference=diffDocuments(this.Workbook.ToJSON(),document);if(difference.kind==='cells'&&!difference.changes.length)return;this._applying=true;try{applyDocument(this.Workbook,document);}finally{this._applying=false;}}
   async Connect({mode='join'}={}){
-    if(this._disposed||this._connected)throw new Error('Session cannot be connected again');
+    if(this._disposed||this._connected||this._connecting)throw new Error('Session cannot be connected again');
     if(!['join','create'].includes(mode))throw new TypeError('Connect mode must be join or create');
-    this._state('connecting');let saved=null;
+    this._connecting=true;this._state('connecting');let saved=null;
+    try {
+    const initial=this.Workbook.ToJSON();
     const raw=this._storage?.getItem(this._key);if(raw){try{saved=JSON.parse(raw);if(saved.version!==1)throw new Error('Unknown offline format');validateDocument(saved.local);validateDocument(saved.base.document);}catch(e){this._state('error');throw new CollaborationError('STORAGE','Stored offline edits are invalid; back them up before resetting',e.message);}}
     const remote=mode==='create'?await this._request('','PUT',{document:this.Workbook.ToJSON()}):await this._request();
+    if(!equal(initial,this.Workbook.ToJSON()))throw new CollaborationError('BUSY','Workbook changed while joining; save your edits and retry joining explicitly');
     this._base=saved?.base??remote;this.ClientId=saved?.clientId??this.ClientId;this._pending=saved?.pending??null;this._exclusive=saved?.exclusive??false;this._structuralVersion=saved?.structuralVersion??0;
     this._apply(saved?.local??remote.document);this._desiredRevision=remote.revision;this._connected=true;
     this._sub=this.Workbook.Changed.Subscribe(e=>{if(this._applying)return;if(structural(e)){this._exclusive=true;this._structuralVersion++;}this._persist();this._state(this.Conflict?'conflict':'pending');this._schedule();});
     this._persist();this._state('connected');
     // Do not overwrite a saved in-flight request: retry its immutable identity first.
     await this.Sync();if(this.AutoSync)this._events();return this;
+    } catch(e) {if(!this._connected)this._state('error');throw e;} finally {this._connecting=false;}
   }
   _schedule(delay=150){if(!this.AutoSync||this._disposed||this.Conflict||this.Status==='error')return;clearTimeout(this._timer);this._timer=setTimeout(()=>{this.Sync().catch(e=>this.Error.Emit(e));},delay);this._timer.unref?.();}
   async Sync(){
@@ -95,7 +99,7 @@ export class CollaborationSession {
         const response=await this._fetch(`${this.Url}/rooms/${encodeURIComponent(this.Room)}/events`,{headers:{Authorization:'Bearer '+this._token},signal:this._controller.signal,cache:'no-store'});
         if(!response.ok||!response.body)throw new Error('Event stream unavailable');
         delay=500;const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
-        try{while(!this._disposed){const {done,value}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true}).replace(/\r\n/g,'\n');if(buffer.length>1024*1024)throw new Error('Event frame exceeds limit');let index;
+        try{while(!this._disposed){const {done,value}=await reader.read();if(done)break;buffer=(buffer+decoder.decode(value,{stream:true})).replace(/\r\n/g,'\n');if(buffer.length>1024*1024)throw new Error('Event frame exceeds limit');let index;
           while((index=buffer.indexOf('\n\n'))>=0){const frame=buffer.slice(0,index);buffer=buffer.slice(index+2);const data=frame.split('\n').filter(x=>x.startsWith('data:')).map(x=>x.slice(5).trimStart()).join('\n');if(!data)continue;const event=JSON.parse(data);if(event.type==='revision'){this._desiredRevision=Math.max(this._desiredRevision,event.revision);if(this._desiredRevision>this.Revision)this._schedule(0);}else if(event.type==='presence')this.PresenceChanged.Emit(event.participants);}
         }}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
       }catch(e){if(this._disposed)return;this.Error.Emit(e);}
