@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='gridweb-http-') as directory:
    def connect(page,mode):
     page.locator('#collaboration-button').click();page.get_by_label('Server URL',exact=True).fill(url);page.get_by_label('Room',exact=True).fill('browser-room');page.get_by_label('Access token',exact=True).fill(TOKEN);page.get_by_label('Connection action').select_option(mode)
     if mode=='join':page.get_by_label('Confirm replacing local workbook').check()
-    page.get_by_role('button',name='Connect',exact=True).click();page.wait_for_function('gridwebCollaboration.session?.Status==="connected"');page.get_by_role('button',name='Close collaboration').click()
+    page.get_by_role('button',name='Connect',exact=True).click();page.wait_for_function('gridwebCollaboration.session?.Status==="connected" || document.querySelector("#collaboration-dialog [role=alert]")?.textContent');require(page.evaluate('gridwebCollaboration.session?.Status')=='connected',page.locator('#collaboration-dialog [data-session-state]').inner_text());page.get_by_role('button',name='Close collaboration').click()
    check('Create and join authenticated room using Share controls',lambda:(connect(a,'create'),connect(b,'join'),require(a.evaluate('gridweb.workbook.ActiveWorksheet.Id')==b.evaluate('gridweb.workbook.ActiveWorksheet.Id'))))
    def keyboard():
     a.evaluate("gridweb.grid.Select('M1');gridweb.grid.Focus()");a.keyboard.press('F2');a.locator('grid-web .editor').fill('124');a.keyboard.press('Enter');b.wait_for_function("gridweb.grid.Sheet.GetCell('M1').Value===124")
