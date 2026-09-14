@@ -1,17 +1,21 @@
 # Changelog
 
+## 0.5.0
+
+Add managed pivot reports with persistent definitions, 12 aggregations, multiple row/column fields and measures, filters, correctly aggregated totals, refresh, stale-state checks, drill-down and transactional history. Structural edits translate pivot references. Native XLSX exports now generate supported row-layout pivot definitions, typed cache definitions/records and connected package relationships; unsupported layouts require explicit flattening. Add import of the matching native subset, field-management studio commands, TypeScript and C# APIs, host/worker routes, schema validation fixtures and installed-package/browser/native tests. This is not arbitrary lossless or complete native Excel PivotTable compatibility.
+
 ## 0.4.0
 
-Complete authenticated workbook coauthoring with durable room storage, ordered compare-and-swap commits, independently merged content/style/comment fields, explicit conflict choices, reload-safe pending requests and presence notifications over SSE. Add a Share dialog, deployable Node CLI, public browser/server types, package-worker checks and real two-browser tests. Reject stale retries after receipt expiry and protect edits made while joining a room. Source release archives exclude untracked runtime room data. The static Pages site does not provision a collaboration service.
+Authenticated HTTP/SSE workbook coauthoring, durable ordered room commits, independent content/style/comment merging, explicit conflicts, reload-safe pending requests and presence. Studio Share controls and deployable Node CLI. Reject expired unknown retries, protect edits made while joining, correct browser fetch binding and refresh remote formula indexes. Release archives exclude private untracked runtime files.
 
 ## 0.3.0
 
-Office-style run/load/sync adapter, deferred worksheet/range/format operations, isolated snapshots and atomic rollback. SVG chart export and printed chart fragments, conditional formatting, fitted layouts, repeated titles, breaks, margins and header/footer tokens. Working studio commands and package/browser qualification. Subsequent runtime qualification covers React 18/19, seven companion libraries and Windows WPF/WinUI/Avalonia WebViews.
+Office-style batched APIs, loaded snapshots and atomic rollback. Vector chart export and printed fragments, conditional formatting, fitted pages and repeated titles. Subsequent qualification covers React 18/19, seven companion packages and real Windows WPF/WinUI/Avalonia WebViews.
 
 ## 0.2.0
 
-330 available formula names: binary lookups, two-dimensional return arrays, text/array/date options, distributions/inverses, matrices, engineering/complex functions and dated finance. A1/R1C1 translation, reference-aware aggregation, implicit intersection, selected scalar lifting and array error fallbacks.
+Expand calculation to 330 available names, modern arrays/lookups, distributions/inverses, matrix/complex/engineering/finance, A1/R1C1 translation and reference/array semantics.
 
 ## 0.1.0
 
-Recovered engine, virtualized control, five-sheet studio, file exchange, framework/native source, tests and release pipelines. Interrupted transfer fragments were removed without execution.
+Recover engine, control, studio, file exchange, framework/native source, tests and distribution as readable source; remove incomplete transfer fragments without execution.

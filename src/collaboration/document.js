@@ -27,7 +27,7 @@ export function validateDocument(document) {
 }
 const content = r => ({ input: r?.input ?? null, literal: !!r?.literal });
 const fieldValue = (r, field) => field === 'content' ? content(r) : field === 'style' ? r?.style ?? {} : r?.comment ?? '';
-const structure = d => ({ name:d.name, locale:d.locale, names:d.names, sheets:d.sheets.map(s => ({id:s.id,name:s.name,meta:s.meta})) });
+const structure = d => ({ name:d.name, locale:d.locale, names:d.names, pivotTables:d.pivotTables??[], sheets:d.sheets.map(s => ({id:s.id,name:s.name,meta:s.meta})) });
 /** Content and literal flag are one atomic field; formatting and comments merge independently. */
 export function diffDocuments(base, local, { exclusive = false } = {}) {
   if (exclusive || !equal(structure(base), structure(local))) return { kind:'replace', document:copy(local) };
@@ -85,7 +85,7 @@ export function applyDocument(book, document) {
   const validated=Workbook.FromJSON(document),previous=new Map(book._sheets.map(s=>[s.Id,s])),active=book.ActiveWorksheet?.Id;
   try {
     book._sheets=validated._sheets.map(source=>{const target=previous.get(source.Id)??source;target.Workbook=book;target._name=source.Name;target._cells=source._cells;target._formulaCells=new Set(source._formulaCells);target._used=null;target._filtered=new Set(source._filtered);target._meta=source._meta;return target;});
-    book.Name=validated.Name;book.Locale=validated.Locale;book._names=new Map(validated._names);
+    book.Name=validated.Name;book.Locale=validated.Locale;book._names=new Map(validated._names);book.PivotTables._load(validated.PivotTables.ToJSON());
     book.ActiveWorksheet=book._sheets.find(s=>s.Id===active)??book._sheets[0];
     // Inverse history closures can refer to records changed remotely. Never replay stale inverses.
     book.ClearHistory();book._flush([{type:'remote-sync'}],'Remote synchronization');

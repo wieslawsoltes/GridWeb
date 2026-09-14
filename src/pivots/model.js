@@ -30,11 +30,12 @@ export class PivotReport {
   if(source)next.source=point(b,source);if(destination){next.destination=point(b,destination);next.destination.address=cellAddress(destination.Bounds.r1,destination.Bounds.c1);}
   if(name!=null){nameValid(name);if(collection._items.some(r=>r.id!==old.id&&r.name.toUpperCase()===name.toUpperCase()))throw new Error('Duplicate pivot name');next.name=name;}
   const input=ref(b,next.source);next.options=normalizeOptions(input.Values[0],{...old.options,...options});delete next.invalidReason;
-  b.Transaction('Reconfigure pivot '+next.name,()=>{if(destination&&old.lastBounds)ref(b,old.destination).Worksheet.GetRange(old.lastBounds).Clear('contents');if(destination)next.lastBounds=null;collection._set(collection._items.map(r=>r.id===old.id?next:r));this.Refresh();});return this;
+  b.Transaction('Reconfigure pivot '+next.name,()=>{if(destination&&old.lastBounds)b._sheets.find(s=>s.Id===old.destination.sheet)?.GetRange(old.lastBounds).Clear('contents');if(destination)next.lastBounds=null;collection._set(collection._items.map(r=>r.id===old.id?next:r));this.Refresh();});return this;
  }
  SetFilter(field,values){const f=this.Options.filters.filter(f=>f.column.toUpperCase()!==String(field).toUpperCase());if(values!==null)f.push({column:field,values});return this.Update({options:{filters:f}});}
  DrillDown(row,column,{limit=10000}={}){
   if(!Number.isInteger(limit)||limit<1||limit>100000)throw new RangeError('Drill-down limit must be 1–100,000 rows');
+  if(this.IsStale)throw new Error('Refresh the pivot before drilling into changed source records');
   const c=this._compute(),rs=c.options.rows.length,ms=c.options.values.length;
   if(!Number.isInteger(row)||row<1||row>=c.result.length||!Number.isInteger(column)||column<rs||column>=c.result[0].length)throw new RangeError('Choose a pivot value cell, using zero-based output indexes');
   const rk=c.rows[row-1][0],ck=c.columns[Math.floor((column-rs)/ms)][0],matrix=this.Source.Values,ri=c.options.rows.map(n=>c.headers.indexOf(n)),ci=c.options.columns.map(n=>c.headers.indexOf(n));const result=[c.headers];
@@ -85,7 +86,7 @@ function transform(b,axis,at,count,remove){
  const a=axis==='row'?'r1':'c1',z=axis==='row'?'r2':'c2',start=b[a],end=b[z];let first=start,last=end;
  if(!remove){if(start>=at)first+=count;if(end>=at)last+=count;}
  else if(end>=at){first=start>=at+count?start-count:start<at?start:at;last=end>=at+count?end-count:at-1;}
- if(first>last||last>=(axis==='row'?'MAX_ROWS':'MAX_COLUMNS'))return null;return {...b,[a]:first,[z]:last};
+ if(first>last||last>=(axis==='row'?MAX_ROWS:MAX_COLUMNS))return null;return {...b,[a]:first,[z]:last};
 }
 /** Decorate the one shared Workbook constructor, rather than creating incompatible subclass identities. */
 export function installPivotModel(Workbook){

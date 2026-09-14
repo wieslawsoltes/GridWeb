@@ -6,78 +6,80 @@
 [![Downloads](https://img.shields.io/npm/dm/@wieslawsoltes/gridweb)](https://www.npmjs.com/package/@wieslawsoltes/gridweb)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-Reusable headless spreadsheet engine, virtualized Web Component and Excel-inspired workbook studio. Plain JavaScript, TypeScript declarations, .NET-style MVVM and events, React adapter, worker protocol, native WebView hosts, Office-style batched APIs and authenticated network collaboration share the same core.
+A reusable headless spreadsheet engine, virtualized Web Component and Excel-inspired workbook studio. JavaScript, TypeScript, .NET-style MVVM, React, workers and native WebView hosts share one core. Office-style batched APIs, authenticated coauthoring, vector printing and managed pivots are optional reusable surfaces.
 
-**Independent implementation, not Microsoft Excel or complete Office.js/COM/VBA compatibility.** See the [current compatibility matrix](docs/compatibility.md). No proprietary runtime, artwork or fonts are bundled.
+**Independent software, not Microsoft Excel or full Excel/Office.js/COM/VBA parity.** [Exact compatibility boundaries](docs/compatibility.md).
 
-**[Workbook Studio](https://wieslawsoltes.github.io/GridWeb/)** · [Releases](https://github.com/wieslawsoltes/GridWeb/releases) · [Core API](docs/api.md) · [Calculation](docs/functions.md) · [Office-style API](docs/office-api.md) · [Printing and SVG](docs/printing.md) · [Collaboration](docs/collaboration.md)
+**[Open Workbook Studio](https://wieslawsoltes.github.io/GridWeb/)** · [Releases and full source](https://github.com/wieslawsoltes/GridWeb/releases) · [API](docs/api.md) · [Architecture](docs/architecture.md)
 
-## Install and use
+## Install
 
 ```sh
 npm install @wieslawsoltes/gridweb
 ```
 
 ```js
-import { Workbook } from '@wieslawsoltes/gridweb';
+import {Workbook} from '@wieslawsoltes/gridweb';
 import '@wieslawsoltes/gridweb/controls';
 const book = new Workbook();
-const sheet = book.ActiveWorksheet;
-sheet.GetRange('A1:B2').Values = [[10,20],[30,40]];
-sheet.GetCell('C1').Formula = '=SUM(A1:B2)';
+book.ActiveWorksheet.GetRange('A1:B2').Values = [[10,20],[30,40]];
+book.ActiveWorksheet.GetCell('C1').Formula = '=SUM(A1:B2)';
 const grid = document.createElement('grid-web');
 grid.style.cssText = 'display:block;height:520px';
 grid.Workbook = book;
 document.body.append(grid);
 ```
 
-The root import is DOM-independent. `/controls` registers `<grid-web>`; `/browser` combines the browser control and core without duplicating model constructors. `/react`, `/worker`, `/host`, `/io`, `/office`, `/printing` and `/collaboration` provide optional entry points. The Node service is `/collaboration/server`. Node 22.16+ supports synchronous require(ESM) with shared constructor identity. React is an optional peer; the core has no mandatory runtime npm dependencies.
+The root is DOM-independent. `/controls` registers `<grid-web>`; `/browser` includes core/control without duplicate model constructors. `/react`, `/worker`, `/host`, `/io`, `/office`, `/printing` and `/collaboration` expose the other surfaces. The Node service is `/collaboration/server`. Node 22.16+ supports synchronous require(ESM). React is an optional peer; the core has no mandatory runtime npm dependencies.
 
-## Office-style migration
+## Engine and editor
+
+Sparse workbooks/ranges, 330 available formula names, dependencies, arrays and LET/LAMBDA, binary lookups, distributions, matrices, complex/dated finance, A1/R1C1 translation, transactional editing/history, formatting, validation, conditional rules, tables, sorting/filtering, goal seek and regression. The Canvas editor supports native text editing, keyboard/pointer selections, clipboard/fill, resizing, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses the same engine, not separate mock data.
+
+[Calculation contracts](docs/functions.md) · [Core API](docs/api.md) · [React example](examples/react.jsx)
+
+## Managed pivots
+
+**Data / Insert → Pivot reports** creates a persistent report. Edit pivot reconfigures fields/filters; Refresh pivots updates it from source values; Show details opens underlying source records. Twelve aggregations, multiple measures, row/column axes, totals, history and JSON persistence are implemented.
 
 ```js
-import { createExcelApi } from '@wieslawsoltes/gridweb/office';
-const Excel = createExcelApi(book);
-await Excel.run(async context => {
-  const range = context.workbook.worksheets.getActiveWorksheet().getRange('D1');
-  range.formulas = [['=C1*2']];
-  range.format.font.bold = true;
-  range.load('values');
-  await context.sync();
-  console.log(range.values); // [[200]]
+const source = book.Worksheets.Add('Source');
+source.GetRange('A1:B3').Values = [['Region','Revenue'],['North',10],['North',20]];
+const output = book.Worksheets.Add('Report');
+const pivot = book.PivotTables.Add('Sales', source.UsedRange, output.GetRange('A1'), {
+  rows:['Region'], values:[{column:'Revenue',aggregate:'sum'}]
 });
+pivot.Refresh();
 ```
 
-The adapter implements queued worksheet/range/format operations, loaded snapshots, null-cell skipping and atomic batch rollback. It is a documented subset, not a replacement for all Office add-in services. View → Office API example uses it directly.
+Supported row-axis layouts export as actual native XLSX pivot definitions, cache definitions, typed shared items and cache records. Unsupported native layouts require explicit flattening; JSON retains all managed definitions. Exports refresh a snapshot without changing the open workbook. [Pivot API, native subset and C# usage](docs/pivots.md).
 
-## Engine and studio
+## Office-style batching and print
 
-Sparse worksheets and ranges; 330 available formula names including arrays, LET/LAMBDA, binary lookups, statistical distributions, matrices, complex and dated financial operations; dependency recalculation; A1/R1C1 conversion; transactional editing/history; styles, validation, conditional formatting, tables, sorting/filtering, materialized pivots, goal seek and regression.
+`createExcelApi(book)` from `/office` provides queued `Excel.run`, `load` and `context.sync` for implemented worksheet/range/format operations. Loaded values are snapshots; failed batches roll back atomically. View → Office API example exercises it. [API and differences](docs/office-api.md).
 
-The virtualized Canvas control provides native editing, pointer/keyboard selections, clipboard/fill, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses this engine for editing and calculations. Normal, page-layout and page-break views are available.
+`/printing` exports inert SVG charts and paginated HTML including chart fragments, conditional styling/data bars, fitted A4/Letter/A3/Legal pages, repeated titles, breaks, margins and header/footer tokens. Page Layout → Advanced print and Chart SVG are working studio commands. [Printing contract](docs/printing.md).
 
-Print output includes inert SVG charts and fragments across pages, conditional styling and data bars, fixed cell geometry, fitted A4/Letter/A3/Legal pages, repeated titles, breaks, margins and header/footer tokens. Page Layout → Advanced print opens a printable preview. Chart SVG exports a vector chart. Browser typography is not printer-identical Excel layout.
+## Collaboration
 
-## Frameworks and native hosts
-
-React wrapper and hooks are in `/react`. PascalCase APIs, PropertyChanged, collection notifications, RelayCommand and disposable bindings support .NET-style JavaScript. `dotnet/` contains a typed client and WPF, WinUI and Avalonia controls and samples embedding the same JavaScript engine. CI runs native Windows WebView startup/RPC smoke tests, not just compilation. Exhaustive native input/accessibility and cross-platform qualification remain separate.
-
-`integrations/` contains adapters for Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb and QuikGraphWeb. CI exercises these actual packages with React 18/19. The default studio works offline without that bundle. See [companion instructions](integrations/README.md).
-
-## Network collaboration
-
-**Share** creates or joins an authenticated GridWeb room. Disjoint content/style/comment edits merge; conflicting edits require a visible choice. Pending edits survive reload in this tab’s session storage without the token. Reconnect after reload to resume.
+**Share** creates or joins an authenticated server room, merges disjoint content/style/comment edits, presents conflicts and reports participant selections. Pending edits survive reload in this tab’s session storage, without the token; reconnect to resume.
 
 ```sh
-# Set GRIDWEB_COLLAB_TOKEN to a securely generated secret of at least 24 characters.
+# Supply a securely generated GRIDWEB_COLLAB_TOKEN of at least 24 characters.
 npm run build
 npm run collaboration:serve
 # Installed package: gridweb-collaboration
 ```
 
-The server defaults to loopback port 8099 and serves `/studio`. Configure explicit allowed origins and HTTPS for remote access. The static Pages site does not host this Node service. [API, deployment, recovery and limits](docs/collaboration.md).
+The Node CLI defaults to loopback port 8099 and serves `/studio`. Configure HTTPS, exact allowed origins, persistent storage and application authorization for remote access. The static Pages site does not run the service. [Deployment, API, recovery and limits](docs/collaboration.md).
 
-## Develop and verify
+## Framework and native hosts
+
+PascalCase APIs, PropertyChanged, collection notifications, RelayCommand and disposable bindings support .NET-style JavaScript. `dotnet/` contains the typed C# client and WPF/WinUI/Avalonia controls and samples embedding the same JavaScript engine. Native Windows WebView smoke tests exercise real RPC including pivot creation, refresh and drill-down. Exhaustive native input/accessibility and cross-platform qualification remain separate.
+
+`integrations/` contains Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb and QuikGraphWeb adapters. CI runs actual package tests with React 18/19. The dependency-free studio works without the optional companion bundle. [Bundle instructions](integrations/README.md) · [Native hosts](dotnet/README.md).
+
+## Build, test and distribute
 
 ```sh
 npm ci --ignore-scripts --legacy-peer-deps
@@ -89,8 +91,8 @@ npm run test:browser
 npm run dev
 ```
 
-`npm run build` creates the modular distribution, self-contained studio, embedded host page and Pages site. `npm run release:pack` creates tarball/source/browser archives. Tests cover the engine, types, installed consumers and actual Chromium interactions; framework and native tests run in CI. Source release archives use tracked files, excluding private runtime room data.
+Build produces modular browser files, a standalone studio, embedded host HTML and the Pages site. `npm run release:pack` produces tarball/source/browser archives. CI checks engine/types, installed package consumers, actual browser editing/coauthoring/pivot flows, native runtimes, companion packages and independent Open XML pivot schema validation.
 
-Successful main CI triggers checksum-verified versioned npm/GitHub publication using NPM_TOKEN and provenance. Pages deploys independently. [Release instructions](docs/publishing.md) · [Automatic releases](docs/automatic-releases.md) · [Verification](docs/verification.md) · [Security](SECURITY.md)
+Successful main CI triggers versioned npm/GitHub publication with NPM_TOKEN, provenance and exact-byte verification. Pages deploys independently. Source archives contain tracked source rather than private untracked room files. [Publishing](docs/publishing.md) · [Automatic releases](docs/automatic-releases.md) · [Security](SECURITY.md).
 
-Full Excel parity remains unfinished: exhaustive formulas and Office semantics, lossless arbitrary XLSX, complete native pivots/drawings/data models, VBA, Power Query/DAX, enterprise coauthoring and printer fidelity. Review XLSX import warnings. MIT licensed; see [notices](NOTICE.md).
+Full parity remains unfinished: exhaustive formulas and Office semantics, arbitrary lossless XLSX, complete native pivot/drawing/data-model behavior, VBA, Power Query/DAX, enterprise coauthoring and printer fidelity. No proprietary runtime/artwork/fonts are bundled. MIT licensed; [notices](NOTICE.md).
