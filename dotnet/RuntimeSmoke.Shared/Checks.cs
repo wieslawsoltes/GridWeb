@@ -31,6 +31,11 @@ internal static class Checks
         await Task.Delay(300);
         await client.SetViewOptionsAsync("light", false, 1, "normal");
         Require((await client.InvokeAsync("capabilities")).GetProperty("formulaFunctions").GetArrayLength() >= 330, "Native host includes the current calculation engine");
+        await client.GetRange("F1:G3").SetValuesAsync([["Region", "Revenue"], ["North", 10], ["North", 20]]);
+        await client.AddPivotAsync("NativePivot", "F1:G3", "J1", new PivotOptions { Rows = ["Region"], Values = [new PivotValue("Revenue")] });
+        Require((await client.ListPivotsAsync()).GetArrayLength() == 1, "Native client creates a managed pivot");
+        Require((await client.RefreshPivotAsync("NativePivot"))[1][1].GetDouble() == 30, "Native pivot refresh uses the shared aggregation engine");
+        Require((await client.GetPivotDetailsAsync("NativePivot", 1, 1)).GetArrayLength() == 3, "Native pivot drill-down returns source rows");
         var rejected = false;
         try { await client.InvokeAsync("not-an-allowed-method"); } catch (SpreadsheetException) { rejected = true; }
         Require(rejected, "Native RPC rejects unknown operations");

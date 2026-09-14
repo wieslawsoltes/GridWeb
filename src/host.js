@@ -1,3 +1,4 @@
+import {pivotMethods} from './pivots/host.js';
 import {Workbook} from './model.js';
 import {isError} from './errors.js';
 const encode=value=>JSON.stringify(value,(_key,v)=>isError(v)?{error:v.code,detail:v.detail}:v);
@@ -7,6 +8,7 @@ export function createHostBridge(control,{postMessage=()=>{}}={}){
  let disposed=false;const sheet=request=>{const value=request.sheet==null?control.Workbook.ActiveWorksheet:control.Workbook.Worksheets.Get(request.sheet);if(!value)throw new RangeError('Unknown worksheet');return value;};
  const range=request=>sheet(request).GetRange(request.address??'A1');
  const methods={
+  ...pivotMethods(control),
   'workbook.get':()=>control.Workbook.ToJSON(),
   'workbook.load':r=>{control.Workbook=Workbook.FromJSON(r.workbook);subscribe();return true;},
   'workbook.new':()=>{control.Workbook=new Workbook();subscribe();return true;},
