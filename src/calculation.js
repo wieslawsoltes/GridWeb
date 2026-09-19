@@ -2,6 +2,11 @@ import {CalculationEngine as BaseCalculationEngine} from './calculation-base.js'
 import {parseFormula} from './parser.js';
 import {error,isError,number,text,truth,scalar,matrix} from './errors.js';
 import {parseRange,cellAddress,MAX_ROWS,MAX_COLUMNS,MAX_OPERATION_CELLS} from './address.js';
+import {criteriaPredicate} from './functions.js';
+import {databaseAggregate,DATABASE_FUNCTIONS} from './functions-database.js';
+import {referenceAggregate} from './calculation-aggregate.js';
+import {OMITTED,LAMBDA_HELPERS,evaluateLambdaHelper} from './calculation-lambda.js';
+import {shiftFormula} from './address.js';
 import {r1c1ToA1} from './references.js';
 export {isFormula,literalValue} from './calculation-base.js';
 const aggregate=new Set('SUM AVERAGE MIN MAX COUNT COUNTA PRODUCT SUMSQ MEDIAN STDEV STDEVP STDEV.S STDEV.P VAR VARP VAR.S VAR.P AVEDEV DEVSQ GEOMEAN HARMEAN MODE MODE.SNGL MODE.MULT SKEW SKEW.P KURT'.split(' '));
@@ -14,6 +19,20 @@ function lifted(args,fn){
   return Array.from({length:h},(_,r)=>Array.from({length:w},(_,c)=>{try{return fn(...arrays.map(a=>a[a.length===1?0:r][a[0].length===1?0:c]));}catch(e){return isError(e)?e:error('#VALUE!',e.message);}}));
 }
 export class CalculationEngine extends BaseCalculationEngine {
+  get FunctionNames(){return [...new Set([...super.FunctionNames,'AGGREGATE','MAKEARRAY','ISOMITTED'])].sort();}
+  Evaluate(formula,context){
+    const root=!this._lambdaBudget;if(root)this._lambdaBudget={calls:0,depth:0};
+    try{return super.Evaluate(formula,context);}finally{if(root)this._lambdaBudget=null;}
+  }
+  _invoke(lambda,values){
+    if(lambda?.type!=='lambda'||values.length!==lambda.parameters.length)return error('#VALUE!','Incorrect Parameters');
+    const budget=this._lambdaBudget??{calls:0,depth:0};
+    if(++budget.calls>MAX_OPERATION_CELLS*4||budget.depth>=128)return error('#NUM!','Lambda evaluation limit');
+    const vars=new Map(lambda.context.vars),omitted=new Set(lambda.context.omitted??[]);
+    lambda.parameters.forEach((p,i)=>{vars.set(p,values[i]===OMITTED?null:values[i]);omitted.delete(p);if(values[i]===OMITTED)omitted.add(p);});
+    budget.depth++;
+    try{return this._eval(lambda.body,{...lambda.context,vars,omitted,names:new Set(),depth:lambda.context.depth+1});}finally{budget.depth--;}
+  }
   /** Resolve reference-valued expressions without collapsing their origin/type. */
   _reference(node,ctx,depth=0){
     if(!node||depth>64)return null;
@@ -45,8 +64,35 @@ export class CalculationEngine extends BaseCalculationEngine {
         return this.GetValue(s,r,c,next);
       }return scalar(ev(node.value));
     }
+    if(node.type==='invoke')return this._invoke(ev(node.callee),node.args.map(a=>a.omitted?OMITTED:ev(a)));
     if(node.type!=='call')return super._evaluate(node,ctx);
     const {name,args}=node;
+    if(name==='LET'){
+      if(args.length<3||args.length%2===0||args.length>253)return error('#VALUE!','LET argument count');
+      const vars=new Map(ctx.vars),omitted=new Set(ctx.omitted??[]);
+      for(let i=0;i<args.length-1;i+=2){if(args[i].type!=='name')return error('#NAME?','Invalid LET binding');const value=this._eval(args[i+1],{...next,vars,omitted});vars.set(args[i].name,value);omitted.delete(args[i].name);}
+      return this._eval(args.at(-1),{...next,vars,omitted});
+    }
+    if(name==='LAMBDA'){
+      const parameters=args.slice(0,-1);
+      if(!args.length||parameters.length>253||parameters.some(p=>p.type!=='name'||p.name.includes('.'))||new Set(parameters.map(p=>p.name)).size!==parameters.length)return error('#VALUE!','Invalid LAMBDA parameters');
+      return {type:'lambda',parameters:parameters.map(p=>p.name),body:args.at(-1),context:next};
+    }
+    if(name==='ISOMITTED')return args.length===1?(args[0].type==='name'&&!!ctx.omitted?.has(args[0].name)):error('#VALUE!','ISOMITTED argument count');
+    if(LAMBDA_HELPERS.has(name))return evaluateLambdaHelper(this,name,args,ev);
+    if(name==='AGGREGATE'||name==='SUBTOTAL')return referenceAggregate(this,name,args,next,ev);
+    if(Object.hasOwn(DATABASE_FUNCTIONS,name)){
+      if(args.length!==3)return error('#VALUE!','Database function argument count');
+      const data=ev(args[0]),field=ev(args[1]),criteria=ev(args[2]),ref=this._reference(args[2],next);
+      const criteriaSheet=ref?this._sheet(ref.sheet,ctx.sheet):null;
+      const computed=criteriaSheet?(dataRow,criteriaRow,column)=>{
+        const row=ref.r1+criteriaRow,col=ref.c1+column,record=criteriaSheet._cells.get(row*MAX_COLUMNS+col);
+        if(record?.literal||typeof record?.input!=='string'||!record.input.startsWith('='))throw error('#VALUE!','Calculated criteria require a formula');
+        const value=this.Evaluate(shiftFormula(record.input,dataRow-1,0),{...next,sheet:criteriaSheet,row,col});
+        return truth(value);
+      }:null;
+      return databaseAggregate(this.Functions,criteriaPredicate,name,data,field,criteria,computed);
+    }
     if(name==='ADDRESS'){
       if(args.length<2||args.length>5)return error('#VALUE!','ADDRESS argument count');
       const r=Math.trunc(number(ev(args[0]))),c=Math.trunc(number(ev(args[1]))),mode=args[2]==null||args[2].value===null?1:Math.trunc(number(ev(args[2]))),a1=args[3]==null||args[3].value===null||truth(ev(args[3]));
@@ -77,6 +123,11 @@ export class CalculationEngine extends BaseCalculationEngine {
       return fn(...args.map(arg=>{const ref=this._reference(arg,next);if(ref){const value=this._read(ref,next,true);return Array.isArray(value)?value:[[value]];}const v=ev(arg);if(arg.type==='table')return matrix(v);if(name==='COUNT'&&!Array.isArray(v)&&!isError(v)&&v!==null&&v!==''){try{return number(v);}catch{return v;}}return numericAggregate.has(name)&&!Array.isArray(v)?number(v):v;}));
     }
     if(fn&&scalarFunctions.has(name))return lifted(args.map(ev),fn);
+    if(!fn&&(ctx.vars.has(name)||this.Workbook._names.has(name))){
+      const lambda=ev({type:'name',name});
+      if(isError(lambda))return lambda;
+      if(lambda?.type==='lambda')return this._invoke(lambda,args.map(a=>a.omitted?OMITTED:ev(a)));
+    }
     return super._evaluate(node,ctx);
   }
 }

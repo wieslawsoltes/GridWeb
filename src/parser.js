@@ -49,7 +49,7 @@ export function parseFormula(source) {
         take(); const args = [];
         if (peek() !== ')') {
           while (true) {
-            args.push([',', ';', ')'].includes(peek()) ? { type: 'value', value: null } : expression());
+            args.push([',', ';', ')'].includes(peek()) ? { type: 'value', value: null, omitted: true } : expression());
             if (peek() !== ',' && peek() !== ';') break; take();
           }
         }
@@ -65,7 +65,15 @@ export function parseFormula(source) {
       }
       expect('}'); if (rows.some(r => r.length !== rows[0].length)) throw error('#VALUE!', 'Ragged array'); n = { type: 'array', rows };
     } else throw error('#VALUE!', 'Invalid formula expression');
-    while (peek() === '%' || peek() === '#') n = { type: 'unary', op: take().t, value: n };
+    while (['%', '#', '('].includes(peek())) {
+      if (peek() !== '(') { n = { type: 'unary', op: take().t, value: n }; continue; }
+      take(); const args = [];
+      if (peek() !== ')') while (true) {
+        args.push([',', ';', ')'].includes(peek()) ? {type: 'value', value: null, omitted: true} : expression());
+        if (peek() !== ',' && peek() !== ';') break; take();
+      }
+      expect(')'); n = {type: 'invoke', callee: n, args};
+    }
     depth--; return n;
   }
   function expression(min = 0) {

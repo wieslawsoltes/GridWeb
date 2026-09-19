@@ -1,3 +1,4 @@
+import {captureRange,pasteSpecial,fillSeries,specialCells} from './editing.js';
 import { EventSource, ObservableObject, RelayCommand } from './events.js';
 import { CalculationEngine, isFormula } from './calculation.js';
 import { formatValue } from './format.js';
@@ -298,15 +299,21 @@ export class CellRange {
   Merge(){if(this.Worksheet.IsProtected)throw new Error('Worksheet is protected');if(this.Worksheet._meta.merges.some(m=>intersects(m,this.Bounds)))throw new Error('Merge overlaps an existing merge');this.Worksheet.Workbook.Transaction('Merge cells',()=>{this._each((c,r,col)=>{if(r||col)c.Input=null;});this.Worksheet._setMeta('merges',[...this.Worksheet._meta.merges,this.Bounds]);});}
   Unmerge(){this.Worksheet._setMeta('merges',this.Worksheet._meta.merges.filter(m=>!intersects(m,this.Bounds)));}
   CopyFrom(source,mode='all'){
+    if(!['all','values','formulas','formats'].includes(mode))throw new TypeError('Unknown copy mode');
+    if(mode==='formats'){this.PasteSpecial(source,{mode:'formats'});return;}
     if(!(source instanceof CellRange))throw new TypeError('Expected source range');boundedCells(this.Bounds);boundedCells(source.Bounds);
     const copiedValues=mode==='values'?source.Values:null;const records=[];source._each((cell,r,c)=>{records[r]??=[];records[r][c]=clone(cell._record??{input:null,style:{}});});
     this.Worksheet.Workbook.Transaction('Copy cells',()=>this._each((cell,r,c)=>{
       const sr=r%source.RowCount,sc=c%source.ColumnCount,record=clone(records[sr][sc]),dr=cell.Row-(source.Bounds.r1+sr),dc=cell.Column-(source.Bounds.c1+sc);
-      if(mode==='values'){cell.Value=copiedValues[sr][sc];return;}
+      if(mode==='values'){const value=copiedValues[sr][sc];cell.Value=isError(value)?{error:value.code}:value;return;}
       if(isFormula(record))record.input=shiftFormula(record.input,dr,dc);if(mode==='formulas'){cell.Input=record.input;return;}
       this.Worksheet._setInput(cell.Row,cell.Column,record.input,{literal:record.literal});cell.Style=record.style??{};cell.Comment=record.comment??'';
     }));
   }
+  Capture(){return captureRange(this);}
+  PasteSpecial(source,options){return pasteSpecial(this,source,options);}
+  FillSeries(options){return fillSeries(this,options);}
+  SpecialCells(type,options){return specialCells(this,type,options);}
   FillDown(){this.CopyFrom(this.Worksheet.GetRange({...this.Bounds,r2:this.Bounds.r1}));} FillRight(){this.CopyFrom(this.Worksheet.GetRange({...this.Bounds,c2:this.Bounds.c1}));}
   AutoFill(destination,{series=true}={}){
     destination=destination instanceof CellRange?destination:this.Worksheet.GetRange(destination);const values=this.Values.flat(),numeric=series&&values.length>=2&&values.every(v=>typeof v==='number')&&(this.RowCount===1||this.ColumnCount===1);

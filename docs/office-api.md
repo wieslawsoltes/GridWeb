@@ -24,7 +24,7 @@ Assignments enqueue operations. Reads require `load()` followed by `sync()`; oth
 
 ## Implemented surfaces
 
-Worksheet collections: getItem, getItemAt, getActiveWorksheet, add, items loading. Worksheets: name/id/position, range/indexed/used-range access, activate and delete. Ranges: values, formulas, text, numberFormat, address/index/count loading, offset/resize/row/column/cell access, clear, merge/unmerge, formula-aware copy. Formatting: font/fill, alignment, wrap and column autofit. Matching declarations are shipped.
+Worksheet collections: getItem, getItemAt, getActiveWorksheet, add, items loading. Worksheets: name/id/position, range/indexed/used-range access, activate and delete. Ranges: values, formulas, text, numberFormat, address/index/count loading, offset/resize/row/column/cell access, clear, merge/unmerge, formula-aware copy, format-only copy, transpose and skip-blank flags. Formatting: font/fill, alignment, wrap and column autofit. Matching declarations are shipped.
 
 In matrix assignments, `null` skips an individual cell; empty text clears cell content or resets the number format. Whole-matrix null and dimension mismatches are rejected. Mixed font/fill values load as null. Unknown load properties, unsupported copy modes, row autofit and foreign/disposed contexts produce explicit errors.
 
@@ -32,7 +32,7 @@ The studio exposes a real example under View → Office API example. It creates 
 
 ## Boundaries
 
-This is not the full Office.js object model. Tables, charts, names, bindings, add-in permissions, events, host requirement sets, trackedObjects and COM/VBA APIs are not exposed through this adapter. Core equivalents may exist separately. Proxy tracking across structural edits is not Office-equivalent; use fresh ranges after those operations. Skip-blanks and transposed copying are explicitly unsupported. The adapter is single-process; it is not a coauthoring service.
+This is not the full Office.js object model. Tables, charts, names, bindings, add-in permissions, events, host requirement sets, trackedObjects and COM/VBA APIs are not exposed through this adapter. Core equivalents may exist separately. Proxy tracking across structural edits is not Office-equivalent; use fresh ranges after those operations. Copy flags use the bounded [PasteSpecial profile](editing.md); transposed custom validation, merged/spill content copying and other documented combinations still reject explicitly. The adapter is single-process; it is not a coauthoring service.
 
 Interoperability references:
 - https://learn.microsoft.com/en-us/office/dev/add-ins/develop/application-specific-api-model

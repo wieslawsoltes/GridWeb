@@ -13,6 +13,11 @@ export function createShowcase(){
     ['International workdays','=NETWORKDAYS.INTL(DATE(2026,9,7),DATE(2026,9,13),"0000011")','Weekend mask starts Monday'],
     ['Unicode text search','=TEXTBEFORE("ß.A.tail","a",1,1)','Original string offsets preserved'],
     ['Dated cash flows','=XIRR({-100,110},{DATE(2025,1,1),DATE(2026,1,1)})','Iterative dated rate of return'],
+    ['Callable LAMBDA','=LAMBDA(x,x^2)(12)','Direct function invocation'],
+    ['Optional LAMBDA argument','=LAMBDA(x,y,IF(ISOMITTED(y),x*2,x+y))(7,)','Omission differs from a blank value'],
+    ['Generated matrix','=SUM(MAKEARRAY(3,3,LAMBDA(row,col,row*col)))','One-based generated array coordinates'],
+    ['Ignore aggregate errors','=AGGREGATE(9,6,{1,#N/A,3})','Sum while ignoring errors'],
+    ['Database criteria','=DSUM({"Region","Sales";"North",20;"South",5;"North",15},"Sales",{"Region";"North"})','Header-based conditional database aggregation'],
   ];
   book.Transaction('Calculation compatibility examples',()=>{
     lab.GetRange('A26:C26').Values=[['CALCULATION COMPATIBILITY','Result','Behavior']];
