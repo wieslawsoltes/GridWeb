@@ -88,8 +88,12 @@ export class Range extends ClientObject {
   unmerge() { this.context._enqueue(() => this._get().Unmerge()); }
   copyFrom(source, copyType = 'All', skipBlanks = false, transpose = false) {
     if (!(source instanceof Range) || source.context !== this.context) fail('InvalidObjectPath', 'Source must belong to the same request context');
-    if (skipBlanks || transpose) fail('NotSupported', 'Skip-blanks and transpose copy are not implemented');
-    const mode = enumValue(copyType, ['all','values','formulas']); this.context._enqueue(() => { if (mode === 'values') this.context._book.Calculation.Reset(); this._get().CopyFrom(source._get(), mode); });
+    if (typeof skipBlanks !== 'boolean' || typeof transpose !== 'boolean') fail('InvalidArgument', 'Copy flags must be boolean');
+    const mode = enumValue(copyType, ['all','values','formulas','formats']); this.context._enqueue(() => {
+      if (mode === 'values') this.context._book.Calculation.Reset();
+      if (skipBlanks || transpose || mode === 'formats') this._get().PasteSpecial(source._get(), {mode, skipBlanks, transpose});
+      else this._get().CopyFrom(source._get(), mode);
+    });
   }
 }
 export class Worksheet extends ClientObject {

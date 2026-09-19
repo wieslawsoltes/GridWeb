@@ -1,1 +1,1015 @@
-{"version":"0.1.0","coreExports":["AxisLayout","CalculationEngine","Cell","CellRange","EventSource","FormulaError","GridViewModel","MAX_COLUMNS","MAX_OPERATION_CELLS","MAX_ROWS","ObservableCollection","ObservableObject","PivotTable","RangeFormat","RelayCommand","Workbook","Worksheet","WorksheetCollection","analyzeRange","bind","boundedCells","cellAddress","chartData","columnIndex","columnName","compare","contains","createFunctionRegistry","createPrintDocument","criteriaPredicate","drawChart","error","escapeHTML","flatten","formatValue","fromSerial","goalSeek","importDelimited","intersects","isError","isFormula","linearRegression","literalValue","matrix","number","paginate","parseCell","parseDelimited","parseFormula","parseRange","printCSS","printPagesHTML","quoteSheet","rangeAddress","renameSheetReferences","rewriteAxisReferences","rewriteReferences","safeColor","scalar","serialDate","shiftFormula","splitSheet","text","toDelimited","tokenize","truth"]}
+{
+  "version": "0.6.0",
+  "scope": "Core exports and public prototype members; instance fields, method signatures and semantic equivalence require the declarations and feature audit",
+  "coreExports": [
+    "AxisLayout",
+    "CalculationEngine",
+    "Cell",
+    "CellRange",
+    "EventSource",
+    "FormulaError",
+    "GridViewModel",
+    "MAX_COLUMNS",
+    "MAX_OPERATION_CELLS",
+    "MAX_ROWS",
+    "ObservableCollection",
+    "ObservableObject",
+    "PivotReport",
+    "PivotTable",
+    "PivotTableCollection",
+    "RangeFormat",
+    "RelayCommand",
+    "Workbook",
+    "Worksheet",
+    "WorksheetCollection",
+    "a1ToR1C1",
+    "analyzeRange",
+    "bind",
+    "boundedCells",
+    "captureRange",
+    "cellAddress",
+    "chartData",
+    "chartToSVG",
+    "columnIndex",
+    "columnName",
+    "compare",
+    "contains",
+    "createFunctionRegistry",
+    "createPrintDocument",
+    "criteriaPredicate",
+    "drawChart",
+    "error",
+    "escapeHTML",
+    "fillSeries",
+    "flatten",
+    "formatValue",
+    "fromSerial",
+    "getFormulasR1C1",
+    "goalSeek",
+    "importDelimited",
+    "intersects",
+    "isError",
+    "isFormula",
+    "linearRegression",
+    "literalValue",
+    "matrix",
+    "number",
+    "paginate",
+    "parseCell",
+    "parseDelimited",
+    "parseFormula",
+    "parseRange",
+    "pasteSpecial",
+    "printCSS",
+    "printPagesHTML",
+    "quoteSheet",
+    "r1c1ToA1",
+    "rangeAddress",
+    "renameSheetReferences",
+    "rewriteAxisReferences",
+    "rewriteReferences",
+    "safeColor",
+    "scalar",
+    "serialDate",
+    "setFormulasR1C1",
+    "shiftFormula",
+    "specialCells",
+    "splitSheet",
+    "text",
+    "toDelimited",
+    "tokenize",
+    "truth"
+  ],
+  "publicPrototypeMembers": {
+    "Workbook": [
+      {
+        "name": "Calculate",
+        "kind": "method"
+      },
+      {
+        "name": "CanRedo",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "CanUndo",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "ClearHistory",
+        "kind": "method"
+      },
+      {
+        "name": "DefineName",
+        "kind": "method"
+      },
+      {
+        "name": "Dispose",
+        "kind": "method"
+      },
+      {
+        "name": "Find",
+        "kind": "method"
+      },
+      {
+        "name": "GetRange",
+        "kind": "method"
+      },
+      {
+        "name": "PivotTables",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Redo",
+        "kind": "method"
+      },
+      {
+        "name": "RemoveName",
+        "kind": "method"
+      },
+      {
+        "name": "Replace",
+        "kind": "method"
+      },
+      {
+        "name": "SetProperty",
+        "kind": "method"
+      },
+      {
+        "name": "ToJSON",
+        "kind": "method"
+      },
+      {
+        "name": "Transaction",
+        "kind": "method"
+      },
+      {
+        "name": "Undo",
+        "kind": "method"
+      },
+      {
+        "name": "names",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "worksheets",
+        "kind": "property",
+        "get": true
+      }
+    ],
+    "WorksheetCollection": [
+      {
+        "name": "Add",
+        "kind": "method"
+      },
+      {
+        "name": "Count",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Get",
+        "kind": "method"
+      },
+      {
+        "name": "Remove",
+        "kind": "method"
+      },
+      {
+        "name": "add",
+        "kind": "method"
+      },
+      {
+        "name": "getItem",
+        "kind": "method"
+      },
+      {
+        "name": "getItemAt",
+        "kind": "method"
+      },
+      {
+        "name": "items",
+        "kind": "property",
+        "get": true
+      }
+    ],
+    "Worksheet": [
+      {
+        "name": "AddChart",
+        "kind": "method"
+      },
+      {
+        "name": "AddConditionalFormat",
+        "kind": "method"
+      },
+      {
+        "name": "AddTable",
+        "kind": "method"
+      },
+      {
+        "name": "AddValidation",
+        "kind": "method"
+      },
+      {
+        "name": "CellCount",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Charts",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "ClearFilter",
+        "kind": "method"
+      },
+      {
+        "name": "ColumnCount",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "DeleteColumns",
+        "kind": "method"
+      },
+      {
+        "name": "DeleteRows",
+        "kind": "method"
+      },
+      {
+        "name": "FreezePanes",
+        "kind": "method"
+      },
+      {
+        "name": "FrozenColumns",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "FrozenRows",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "GetCell",
+        "kind": "method"
+      },
+      {
+        "name": "GetRange",
+        "kind": "method"
+      },
+      {
+        "name": "GetRangeByIndexes",
+        "kind": "method"
+      },
+      {
+        "name": "GroupRows",
+        "kind": "method"
+      },
+      {
+        "name": "HideColumns",
+        "kind": "method"
+      },
+      {
+        "name": "HideRows",
+        "kind": "method"
+      },
+      {
+        "name": "InsertColumns",
+        "kind": "method"
+      },
+      {
+        "name": "InsertRows",
+        "kind": "method"
+      },
+      {
+        "name": "IsProtected",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "MergedRanges",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Name",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Protect",
+        "kind": "method"
+      },
+      {
+        "name": "RemoveChart",
+        "kind": "method"
+      },
+      {
+        "name": "RowCount",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "SetCell",
+        "kind": "method"
+      },
+      {
+        "name": "SetColumnWidth",
+        "kind": "method"
+      },
+      {
+        "name": "SetFilter",
+        "kind": "method"
+      },
+      {
+        "name": "SetRowHeight",
+        "kind": "method"
+      },
+      {
+        "name": "Tables",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "ToJSON",
+        "kind": "method"
+      },
+      {
+        "name": "Unprotect",
+        "kind": "method"
+      },
+      {
+        "name": "UpdateChart",
+        "kind": "method"
+      },
+      {
+        "name": "UsedRange",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Validate",
+        "kind": "method"
+      },
+      {
+        "name": "getCell",
+        "kind": "method"
+      },
+      {
+        "name": "getRange",
+        "kind": "method"
+      },
+      {
+        "name": "getUsedRange",
+        "kind": "method"
+      },
+      {
+        "name": "name",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "setCell",
+        "kind": "method"
+      }
+    ],
+    "Cell": [
+      {
+        "name": "Address",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Comment",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Formula",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Input",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Style",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Text",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Value",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "formula",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "text",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "value",
+        "kind": "property",
+        "get": true,
+        "set": true
+      }
+    ],
+    "CellRange": [
+      {
+        "name": "Address",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "AutoFill",
+        "kind": "method"
+      },
+      {
+        "name": "Capture",
+        "kind": "method"
+      },
+      {
+        "name": "Clear",
+        "kind": "method"
+      },
+      {
+        "name": "ColumnCount",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "CopyFrom",
+        "kind": "method"
+      },
+      {
+        "name": "Count",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "FillDown",
+        "kind": "method"
+      },
+      {
+        "name": "FillRight",
+        "kind": "method"
+      },
+      {
+        "name": "FillSeries",
+        "kind": "method"
+      },
+      {
+        "name": "Formula",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Formulas",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "FullAddress",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "GetCell",
+        "kind": "method"
+      },
+      {
+        "name": "Merge",
+        "kind": "method"
+      },
+      {
+        "name": "Offset",
+        "kind": "method"
+      },
+      {
+        "name": "PasteSpecial",
+        "kind": "method"
+      },
+      {
+        "name": "RemoveDuplicates",
+        "kind": "method"
+      },
+      {
+        "name": "Resize",
+        "kind": "method"
+      },
+      {
+        "name": "RowCount",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "SetStyle",
+        "kind": "method"
+      },
+      {
+        "name": "Sort",
+        "kind": "method"
+      },
+      {
+        "name": "SpecialCells",
+        "kind": "method"
+      },
+      {
+        "name": "Text",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Unmerge",
+        "kind": "method"
+      },
+      {
+        "name": "Value",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "Values",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "format",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "formulas",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "values",
+        "kind": "property",
+        "get": true,
+        "set": true
+      }
+    ],
+    "RangeFormat": [
+      {
+        "name": "AutoFitColumns",
+        "kind": "method"
+      },
+      {
+        "name": "Borders",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "ColumnWidth",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "Fill",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "HorizontalAlignment",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "NumberFormat",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "RowHeight",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "VerticalAlignment",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "WrapText",
+        "kind": "property",
+        "set": true
+      },
+      {
+        "name": "fill",
+        "kind": "property",
+        "get": true,
+        "set": true
+      },
+      {
+        "name": "font",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "numberFormat",
+        "kind": "property",
+        "get": true,
+        "set": true
+      }
+    ],
+    "CalculationEngine": [
+      {
+        "name": "Calculate",
+        "kind": "method"
+      },
+      {
+        "name": "Evaluate",
+        "kind": "method"
+      },
+      {
+        "name": "FunctionNames",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "GetDependencyEdges",
+        "kind": "method"
+      },
+      {
+        "name": "GetValue",
+        "kind": "method"
+      },
+      {
+        "name": "Invalidate",
+        "kind": "method"
+      },
+      {
+        "name": "RegisterFunction",
+        "kind": "method"
+      },
+      {
+        "name": "Reset",
+        "kind": "method"
+      }
+    ],
+    "GridViewModel": [
+      {
+        "name": "Dispose",
+        "kind": "method"
+      },
+      {
+        "name": "SetProperty",
+        "kind": "method"
+      }
+    ],
+    "PivotTable": [
+      {
+        "name": "Refresh",
+        "kind": "method"
+      },
+      {
+        "name": "WriteTo",
+        "kind": "method"
+      }
+    ],
+    "PivotReport": [
+      {
+        "name": "Destination",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "DrillDown",
+        "kind": "method"
+      },
+      {
+        "name": "InvalidReason",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "IsStale",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Name",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Options",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "OutputRange",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Refresh",
+        "kind": "method"
+      },
+      {
+        "name": "SetFilter",
+        "kind": "method"
+      },
+      {
+        "name": "Source",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "ToJSON",
+        "kind": "method"
+      },
+      {
+        "name": "Update",
+        "kind": "method"
+      }
+    ],
+    "PivotTableCollection": [
+      {
+        "name": "Add",
+        "kind": "method"
+      },
+      {
+        "name": "Count",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Get",
+        "kind": "method"
+      },
+      {
+        "name": "RefreshAll",
+        "kind": "method"
+      },
+      {
+        "name": "Remove",
+        "kind": "method"
+      },
+      {
+        "name": "ToJSON",
+        "kind": "method"
+      }
+    ]
+  },
+  "controlPrototypeMembers": [
+    {
+      "name": "ActiveCell",
+      "kind": "property",
+      "get": true
+    },
+    {
+      "name": "BeginEdit",
+      "kind": "method"
+    },
+    {
+      "name": "CancelEdit",
+      "kind": "method"
+    },
+    {
+      "name": "CommitEdit",
+      "kind": "method"
+    },
+    {
+      "name": "CopySelection",
+      "kind": "method"
+    },
+    {
+      "name": "DataContext",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "Dispose",
+      "kind": "method"
+    },
+    {
+      "name": "FillSeries",
+      "kind": "method"
+    },
+    {
+      "name": "FindSpecialCells",
+      "kind": "method"
+    },
+    {
+      "name": "Focus",
+      "kind": "method"
+    },
+    {
+      "name": "Metrics",
+      "kind": "property",
+      "get": true
+    },
+    {
+      "name": "Model",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "Notify",
+      "kind": "method"
+    },
+    {
+      "name": "Paste",
+      "kind": "method"
+    },
+    {
+      "name": "PasteSpecial",
+      "kind": "method"
+    },
+    {
+      "name": "PasteText",
+      "kind": "method"
+    },
+    {
+      "name": "Print",
+      "kind": "method"
+    },
+    {
+      "name": "ReadOnly",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "Refresh",
+      "kind": "method"
+    },
+    {
+      "name": "ScrollIntoView",
+      "kind": "method"
+    },
+    {
+      "name": "Select",
+      "kind": "method"
+    },
+    {
+      "name": "Selection",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "SelectionRange",
+      "kind": "property",
+      "get": true
+    },
+    {
+      "name": "Sheet",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "ShowFillSeries",
+      "kind": "method"
+    },
+    {
+      "name": "ShowGoToSpecial",
+      "kind": "method"
+    },
+    {
+      "name": "ShowGridLines",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "ShowPasteSpecial",
+      "kind": "method"
+    },
+    {
+      "name": "Theme",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "ViewMode",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "Workbook",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "Zoom",
+      "kind": "property",
+      "get": true,
+      "set": true
+    },
+    {
+      "name": "attributeChangedCallback",
+      "kind": "method"
+    },
+    {
+      "name": "connectedCallback",
+      "kind": "method"
+    },
+    {
+      "name": "disconnectedCallback",
+      "kind": "method"
+    },
+    {
+      "name": "workbook",
+      "kind": "property",
+      "get": true,
+      "set": true
+    }
+  ],
+  "sourceModules": [
+    "src/address.js",
+    "src/browser.js",
+    "src/calculation-aggregate.js",
+    "src/calculation-base.js",
+    "src/calculation-lambda.js",
+    "src/calculation.js",
+    "src/chart-svg.js",
+    "src/charts.js",
+    "src/collaboration.js",
+    "src/collaboration/client.js",
+    "src/collaboration/document.js",
+    "src/collaboration/server.js",
+    "src/collaboration/store.js",
+    "src/collaboration/validation-worker.js",
+    "src/collaboration/validation.js",
+    "src/control-editing.js",
+    "src/controls.js",
+    "src/core.js",
+    "src/data.js",
+    "src/editing.js",
+    "src/errors.js",
+    "src/events.js",
+    "src/format.js",
+    "src/functions-arrays.js",
+    "src/functions-base.js",
+    "src/functions-database.js",
+    "src/functions-engineering.js",
+    "src/functions-extended.js",
+    "src/functions-statistical.js",
+    "src/functions-support.js",
+    "src/functions.js",
+    "src/host-page.js",
+    "src/host.js",
+    "src/io-base.js",
+    "src/io.js",
+    "src/layout-base.js",
+    "src/layout.js",
+    "src/model-base.js",
+    "src/model.js",
+    "src/office.js",
+    "src/pagination.js",
+    "src/parser.js",
+    "src/pivots/aggregate.js",
+    "src/pivots/host.js",
+    "src/pivots/model.js",
+    "src/pivots/ooxml.js",
+    "src/print-presentation.js",
+    "src/react.js",
+    "src/references.js",
+    "src/worker.js",
+    "src/xml.js",
+    "src/zip.js"
+  ]
+}

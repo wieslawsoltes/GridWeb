@@ -1,3 +1,4 @@
+import type {PasteOptions, FillSeriesOptions, SpecialCellType, SpecialCellOptions} from './editing.js';
 import { Workbook, Worksheet, Cell, CellRange, Bounds, GridViewModel, EventSource, ChartModel, WorkbookChange } from './index.js';
 export interface SelectionChange { address: string; worksheet: Worksheet; bounds: Bounds; row: number; column: number; cell: Cell; }
 export interface CellEdit { worksheet: Worksheet; row: number; column: number; value: unknown; input: unknown; }
@@ -13,6 +14,9 @@ export class GridWebElement extends HTMLElement {
   ScrollIntoView(row: number, column: number): void; Refresh(): void; Focus(): void;
   BeginEdit(initial?: string): boolean; CommitEdit(focus?: boolean): boolean; CancelEdit(): void;
   PasteText(text: string): void; CopySelection(): Promise<string>; Paste(): Promise<void>;
+  PasteSpecial(options?: PasteOptions): CellRange; FillSeries(options?: FillSeriesOptions): number;
+  FindSpecialCells(type: SpecialCellType, options?: SpecialCellOptions): CellRange[];
+  ShowPasteSpecial(): HTMLDialogElement; ShowFillSeries(): HTMLDialogElement; ShowGoToSpecial(): HTMLDialogElement;
   Print(): void; Notify(message: string): void; Dispose(): void;
 }
 export function defineGridWeb(name?: string): typeof GridWebElement;

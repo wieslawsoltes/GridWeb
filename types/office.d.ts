@@ -11,7 +11,7 @@ export class Range implements Loadable {
  values:Primitive[][]; formulas:Primitive[][]; readonly text:string[][]; numberFormat:(string|null)[][]; readonly format:RangeFormat;
  load(selection?:LoadSelection):this; set(values:{values?:Primitive[][];formulas?:Primitive[][];numberFormat?:(string|null)[][];format?:{font?:Partial<Font>;fill?:{color:string};wrapText?:boolean;horizontalAlignment?:string;verticalAlignment?:string}}):this; toJSON():Record<string,unknown>;
  getCell(row:number,column:number):Range; getRow(index:number):Range; getColumn(index:number):Range; getOffsetRange(rows:number,columns:number):Range; getResizedRange(deltaRows:number,deltaColumns:number):Range;
- clear(applyTo?:'All'|'Contents'|'Formats'):void; merge(across?:boolean):void; unmerge():void; copyFrom(source:Range,copyType?:'All'|'Values'|'Formulas',skipBlanks?:boolean,transpose?:boolean):void;
+ clear(applyTo?:'All'|'Contents'|'Formats'):void; merge(across?:boolean):void; unmerge():void; copyFrom(source:Range,copyType?:'All'|'Values'|'Formulas'|'Formats',skipBlanks?:boolean,transpose?:boolean):void;
 }
 export class Worksheet implements Loadable { readonly context:RequestContext; name:string; readonly id:string; readonly position:number; load(selection?:LoadSelection):this; toJSON():Record<string,unknown>; getRange(address:string):Range; getRangeByIndexes(row:number,column:number,rowCount:number,columnCount:number):Range; getUsedRange():Range; activate():void; delete():void; }
 export interface WorksheetCollection { readonly context:RequestContext; readonly items:Worksheet[]; getItem(name:string):Worksheet; getItemAt(index:number):Worksheet; getActiveWorksheet():Worksheet; add(name?:string):Worksheet; load(selection?:string|string[]):this; }

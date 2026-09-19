@@ -1,3 +1,4 @@
+import type {ClipboardSnapshot, PasteOptions, FillSeriesOptions, SpecialCellType, SpecialCellOptions} from './editing.js';
 /** Public GridWeb API. PascalCase model methods and explicit zero-based numeric indexes. */
 export type Primitive = number | string | boolean | null;
 export type CellInput = Primitive | Date | { error: string };
@@ -133,7 +134,9 @@ export class CellRange {
   readonly Format: RangeFormat; readonly format: RangeFormat;
   GetCell(row: number, column: number): Cell; Offset(rows: number, columns: number): CellRange; Resize(rows: number, columns: number): CellRange;
   Clear(mode?: 'all' | 'contents' | 'formats'): void; SetStyle(patch: CellStyle): this; Merge(): void; Unmerge(): void;
-  CopyFrom(source: CellRange, mode?: 'all' | 'values' | 'formulas'): void;
+  CopyFrom(source: CellRange, mode?: 'all' | 'values' | 'formulas' | 'formats'): void;
+  Capture(): ClipboardSnapshot; PasteSpecial(source: CellRange | ClipboardSnapshot, options?: PasteOptions): CellRange;
+  FillSeries(options?: FillSeriesOptions): number; SpecialCells(type: SpecialCellType, options?: SpecialCellOptions): CellRange[];
   FillDown(): void; FillRight(): void; AutoFill(destination: CellRange, options?: { series?: boolean }): void;
   Sort(keys?: { column: number; ascending?: boolean }[], options?: { hasHeaders?: boolean }): void;
   RemoveDuplicates(columns?: number[], options?: { hasHeaders?: boolean }): number;

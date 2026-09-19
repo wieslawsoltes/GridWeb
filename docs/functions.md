@@ -1,21 +1,55 @@
-# Formula inventory and reference semantics · 0.2.0
+# Formula inventory and calculation contracts · 0.6.0
 
-The engine exposes 330 built-in names (140 more than 0.1.0), including interpreter special forms and legacy aliases. This is an availability inventory, not an Excel behavioral-conformance percentage. `new Workbook().Calculation.FunctionNames` is the runtime source of truth; the studio's Insert Function dialog uses it directly.
+The engine exposes **345 available names**, including interpreter special forms and legacy aliases. This is not an Excel behavioral-conformance percentage. `new Workbook().Calculation.FunctionNames` is the runtime source of truth; the studio's Insert Function dialog uses it. [The JSON inventory](functions.json) is regenerated with `npm run inventory` and tested against live availability.
 
-New families include beta/gamma/normal/lognormal/chi-square/Student-t/F/binomial/Poisson/exponential/Weibull distributions and inverse functions; descriptive statistics and regression; matrix multiplication/determinants/inversion; 48-bit bit operations; base conversions; complex arithmetic; international workdays; dated financial functions; and modern array/text operations.
+Existing families include arithmetic/logical/text/date functions; beta/gamma/normal/lognormal/chi-square/Student-t/F/binomial/Poisson/exponential/Weibull distributions and inverses; descriptive statistics/regression; matrix operations; 48-bit bit arithmetic and base conversions; complex arithmetic; international workdays; dated finance; arrays and lookups. Historical numerical qualification remains recorded in [calculation-0.2.md](calculation-0.2.md); it is not a desktop Excel oracle.
 
-XMATCH/XLOOKUP support binary ascending/descending searches (the input must already be sorted), reverse searches, exact/approximate matches and two-dimensional return arrays. TEXTBEFORE/TEXTAFTER/TEXTSPLIT support the implemented optional instance, case, end-match, delimiter-array and padding behaviors. Unicode searches retain original text offsets.
+## Database formulas
 
-`a1ToR1C1` / `r1c1ToA1` translate references with a specified origin, preserving quoted text and structured selectors. `getFormulasR1C1` / `setFormulasR1C1` use each destination cell as origin. ADDRESS and INDIRECT accept R1C1 mode. Implicit intersection `@` resolves unique reference intersections; ROW/COLUMN and the registered scalar-function lifting produce real arrays/spills.
+DAVERAGE, DCOUNT, DCOUNTA, DGET, DMAX, DMIN, DPRODUCT, DSTDEV, DSTDEVP, DSUM, DVAR and DVARP accept `database, field, criteria`. Matrices require a header row and at least one data/criteria row. Fields are case-insensitive headers or one-based numeric indexes. DCOUNT/DCOUNTA accept an omitted/blank field to count matching records.
 
-Aggregation preserves the distinction between reference values and directly supplied text/logical literals. IFERROR/IFNA broadcast array fallbacks. Unsupported grammar and methods remain explicit errors rather than JavaScript execution.
+Criteria columns in a row are AND; separate rows are OR. Repeating a header permits lower/upper bounds on the same field. The profile supports comparisons, escaped wildcards, unadorned text prefixes, and formula criteria stored in a worksheet under a non-database header. Formula criteria shift relative references for each database record and retain dependencies. Literal arrays cannot supply executable criteria formulas. DGET returns VALUE for no match and NUM for multiple matches. Database/criteria matrices remain bounded; more than 4,000,000 criterion checks return NUM rather than performing an unbounded cross product.
 
-## Verification
+```text
+=DSUM(A1:D100,"Sales",F1:G3)
+=DGET(A1:D100,"Owner",F1:F2)
+```
 
-665 Node tests and 34 Chromium groups passed locally for this change. The numerical corpus includes 208 independently generated SciPy 1.17.0 cross-checks. Inverse-tail regression tests check relative precision separately. SciPy agreement is not an Excel golden-file comparison. The live Formula lab contains additional working examples starting at row 26.
+## AGGREGATE and SUBTOTAL
 
-## Remaining boundaries
+AGGREGATE supports selectors 1–19 and options 0–7. Selectors 1–13 accept references/arrays; 14–19 require their fourth `k` argument. Direct and supported named/INDIRECT/OFFSET references retain row visibility and formula identity. Filtered rows are excluded; hidden rows, errors and nested SUBTOTAL/AGGREGATE formulas are excluded according to the selected option. Nested totals are detected from parsed formulas, not strings containing function names. Sparse full-column ranges and spill outputs participate without allocating full-column matrices, and range dependencies track later edits.
 
-The catalog is not exhaustive. Full argument-count/coercion/locale parity, all scalar lifting, every optional argument, 3D references, unions/intersections, iterative calculation and Excel's complete precision/error behavior remain unqualified or unimplemented. Matrix work is bounded to 128 square dimensions and other operations use explicit resource limits. Financial solvers return NUM when their bounded iteration does not converge.
+Computed arrays do not retain row visibility or nested-formula provenance. This is an intentional distinction, not a reason to infer hidden-row information from result coordinates. SUBTOTAL implements selectors 1–11 and 101–111 through the same reference-aware path.
 
-References: Microsoft ADDRESS, XMATCH and COUNT function documentation, and the WorksheetFunction.Sum remarks on literal versus reference coercion.
+```text
+=AGGREGATE(9,6,A2:A100)
+=AGGREGATE(14,7,A2:A100,3)
+=SUBTOTAL(109,A2:A100)
+```
+
+## Callable LAMBDA and helpers
+
+LAMBDA expressions can be invoked directly and return lexical closures. Named LAMBDAs can recurse with bounded depth/work; limit errors stay NUM rather than being rewritten as NAME. Incorrect argument counts produce VALUE. Parameters are validated for the implemented name/uniqueness rules.
+
+Omitted call arguments are tracked separately from blank values. ISOMITTED examines this metadata, including lexical scope and LET shadowing. MAKEARRAY uses one-based row/column indexes. MAP requires equal input shapes. BYROW/BYCOL preserve row/column orientation. MAP/MAKEARRAY/BYROW/BYCOL and SCAN reject unsupported nested array results with CALC rather than silently truncating them; REDUCE permits a growing array accumulator.
+
+```text
+=LAMBDA(x,x^2)(12)
+=LAMBDA(x,y,IF(ISOMITTED(y),x*2,x+y))(7,)
+=MAKEARRAY(3,3,LAMBDA(row,col,row*col))
+=LET(scale,4,LAMBDA(x,x*scale))(5)
+```
+
+## Existing reference/array semantics
+
+XMATCH/XLOOKUP support binary ascending/descending searches (already-sorted input), reverse searches, exact/approximate matching and two-dimensional return arrays. Modern text functions implement their documented repository profile, including original Unicode offsets. A1/R1C1 conversion uses explicit origins and preserves quoted text/structured selectors. ADDRESS/INDIRECT support R1C1 mode. Implicit `@` resolves unique reference intersections. ROW/COLUMN and supported scalar lifting produce real arrays/spills.
+
+Aggregation distinguishes reference values from directly supplied text/logical literals. IFERROR/IFNA broadcast fallbacks. Unsupported grammar does not execute JavaScript.
+
+## Qualification and boundaries
+
+See [0.6 verification](verification-0.6.md) and the [feature audit](excel-feature-audit.md). The new regression matrix covers all 19 AGGREGATE selectors × eight options, database criteria/error cases and LAMBDA/helper behavior. GridWeb JSON/XLSX self-round-trips are not native Excel open/save certification.
+
+The catalog is not exhaustive. Full argument/coercion/locale/name/precision/error compatibility, every optional argument, all scalar lifting, 3D references, reference unions/intersections, iterative calculation and future-function OOXML metadata remain incomplete or unqualified. Numeric matrices and other operations use explicit bounds; financial solvers return NUM on bounded non-convergence. Large operations remain synchronous unless a worker host is used.
+
+Target references: Microsoft [AGGREGATE](https://support.microsoft.com/en-us/excel/functions/aggregate-function), [DSUM](https://support.microsoft.com/en-us/excel/functions/dsum-function), [LAMBDA](https://support.microsoft.com/en-us/excel/functions/lambda-function), [MAKEARRAY](https://support.microsoft.com/en-us/excel/functions/makearray-function), [ISOMITTED](https://support.microsoft.com/en-us/excel/functions/isomitted-function) and [BYROW](https://support.microsoft.com/en-us/excel/functions/byrow-function).

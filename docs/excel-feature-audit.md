@@ -1,0 +1,70 @@
+# Excel feature audit · 0.6.0
+
+Audit date: 2026-09-19. Starting source: `79fe32584e646a614a6549c8a14ea12e976b2e02` (the complete main source tree, including its existing gitlink). This is a source-level feature inventory and a focused behavioral audit, **not an assertion that every Excel feature or API member is implemented**.
+
+The old generated inventories were still labeled 0.1.0 and listed 190 functions, while the inspected baseline exposed 330. `npm run inventory` now derives the inventories from live exports, public prototype members and all `src/**/*.js` modules. Regression tests reject inventory drift. [Function names](functions.json) and [API/module inventory](api-inventory.json) describe availability; they are not behavioral-conformance percentages. The current engine exposes **345 names**, including special forms and legacy aliases.
+
+## Engine and control inventory
+
+“Partial” means the row contains working features but does not cover the full Excel surface. Tests named below establish their own assertions, not every behavior in the row.
+
+| Area | Executable implementation | Important remaining work | Source / evidence |
+|---|---|---|---|
+| Workbook and worksheets — partial | Sparse cells, worksheet collections, typed inputs, names, active sheet, bounded full-sheet addresses, JSON state | Workbook/sheet setting catalog, all name scopes and rules, external workbooks, complete Excel events and overloads | `model-base.js`, `model.js`, core/model tests |
+| Transactions and history — partial | Synchronous atomic transactions, nested edits, rollback, revision/change notifications, undo/redo | Full Excel operation semantics, selective/shared collaboration undo, large-history persistence | `model-base.js`, `events.js`, editing and collaboration tests |
+| Formula grammar — partial | Parsed arithmetic, comparisons, concatenation, literals, arrays, calls, names, references, spill/intersection prefixes, direct LAMBDA invocation | 3D references, reference unions/intersections, complete syntax and name validation, localized grammar | `parser.js`, `address.js`, `references.js`, calculation tests |
+| Calculation — partial | Dependency invalidation, cached results, ranges, automatic/manual modes, spills, circular-reference detection, custom registered functions | Iterative circular calculation, all Excel coercion/precision/error precedence, volatile/scheduling parity, external links | `calculation-base.js`, `calculation.js` |
+| Formula catalog — partial | 345 names: arithmetic, logical, text, date, lookup, statistical, engineering, complex, matrix, financial, arrays and database families | Additional functions including GROUPBY/PIVOTBY, CUBE/service/data-linked functions, exhaustive signatures, aliases, optional arguments and locale behavior | `functions*.js`, [live inventory](functions.json), numerical corpus and calculation tests |
+| LET and LAMBDA — partial | Lexical bindings/closures, named recursion, callable expressions, omitted argument tracking, ISOMITTED, MAP, MAKEARRAY, BYROW/BYCOL, REDUCE/SCAN | Exact Excel recursion/resource ceilings, every binding/name rule, nested-array and higher-order result compatibility | `calculation-lambda.js`, `calculation-compatibility.test.mjs` |
+| Database formulas — implemented profile | All 12 D-functions; indexed/header fields, AND/OR criteria, repeated criterion headers, wildcards/text prefixes, relative formula criteria | Exhaustive Excel date/error/locale criteria equivalence and independent desktop golden corpus | `functions-database.js`, evaluator integration; bounded criteria work |
+| AGGREGATE and SUBTOTAL — implemented profile | 19 AGGREGATE selectors × 8 options; filtered/hidden row handling, nested-total detection, error exclusion, reference dependencies | 3D/union reference input; computed arrays intentionally cannot retain hidden-row or nested-total provenance; full coercion qualification | `calculation-aggregate.js`; selector/option matrix tests |
+| Range editing — partial | Copy, fill down/right, autofill, clear, merge/unmerge; snapshot PasteSpecial, linear/growth/date series, special-cell queries | Full merged/spill copying, all paste combinations, multi-area editing, richer pattern/trend/custom-list fill, move/cut reference repair | `model-base.js`, `editing.js`, `editing.test.mjs` |
+| Styles and number formats — partial | Font/fill/border/alignment/wrap/locking properties; numeric/date/percent/currency formatting | Complete format-code language, themes, rich in-cell text, all border variants, international/font-metric equivalence | `format.js`, model sanitization, layout/IO tests |
+| Tables, sort and filters — partial | Named table ranges and structured references, sort keys, filters, duplicates, dimensions/outline metadata | Full ListObject lifecycle, totals/calculated-column propagation, every filter mode, nested outlines and Excel sorting semantics | `model-base.js`, parser/evaluator, data tests |
+| Validation and conditional formats — partial | List/numeric/whole/date/text-length/custom validation; formula/cell-value/color-scale/data-bar/duplicate rules | Every rule/priority/stop-if-true behavior, icon-set and extension fidelity, input-message/error-style catalog | Model, controls and print presentation; validation tests |
+| What-if and analysis — partial | Goal seek, linear regression, range analysis, basic aggregation | Scenario manager, one/two-variable data tables, Solver-compatible constraints/algorithms, full Analysis ToolPak | `data.js`, data tests |
+| Managed pivots — partial | Persistent definitions, row/column grouping, measures, 12 aggregations, filters, totals, refresh/stale state and drill-down | Hierarchical subtotals, date grouping, calculated fields/items, slicers/timelines, OLAP/model semantics | `pivots/*.js`, pivot model/IO/browser/schema tests |
+| Charts and drawings — partial | Column/bar/line/area/pie/scatter, linked ranges, move/resize, vector SVG export | Complete chart types, combos/3D, secondary axes, drawing shapes/images, rich labels, sparklines, precise native serialization | `charts.js`, `chart-svg.js`, controls and print tests |
+| JSON/CSV/TSV — implemented profile | Local typed JSON, delimited import/export, quoting and safe text export, explicit formula opt-in | Arbitrary Excel text import and every locale/data-connection behavior | `data.js`, IO and package tests |
+| XLSX/OOXML — partial | Supported cells/formulas/styles/names/tables/notes/validation/charts and a native range-backed row-pivot/cache subset | Lossless unknown-part preservation, native column-axis pivots, all drawing/extension/relationship semantics, future-function metadata and desktop open/save qualification | `io-base.js`, `io.js`, `pivots/ooxml.js`, ZIP/XML and schema tests |
+| Other formats and automation — not implemented | No execution of embedded VBA or arbitrary workbook scripts | BIFF/XLS, XLSB, encryption, VBA/COM, ActiveX/form controls, Office add-in services, Python-in-Excel and trusted native extensions | Explicit parser/IO/host boundaries; no hidden execution fallback |
+| Printing — partial | Paginated HTML, paper/orientation/scale/fit, margins, repeated titles, breaks, headers/footers, vector charts and conditional styling | Exact Excel pagination/font metrics, complete print-setting persistence, physical-printer qualification | `layout*.js`, `pagination.js`, `print-presentation.js` |
+| Reusable web control — partial | Virtualized Canvas2D, native editing, pointer/keyboard/touch paths, clipboard, freeze/merge/resize, charts, themes, zoom and page views | WebGPU rendering, full Excel navigation/selection/input behavior, multi-area selection, exhaustive IME/RTL/accessibility/device qualification | `controls.js`, `control-editing.js`, Chromium suites |
+| Editing dialogs — implemented profile | Paste special, Fill series, Go to special; keyboard isolation, read-only checks, inline errors, Escape/focus restoration and responsive dark/light layout | External rich clipboard import, cut/PasteSpecial, whole-Excel dialog equivalence; Go to special navigates individual results rather than creating a multi-area selection | `control-editing.js`, `editing-browser.py` |
+| Office-style adapter — partial | Queued run/load/sync, range/worksheet/format proxies, snapshots, atomic batch rollback, format/transpose/skip-blank copying | Full Office.js object graph/requirement sets, tracked objects, host services/events, COM equivalence | `office.js`, Office/installed-package tests |
+| Worker and native bridge — implemented profile | JSON-only allowlisted commands, worker correlation/cancellation, workbook/selection events, pivot and editing RPC | Full typed native convenience API for every new command, native input/accessibility/platform qualification | `host.js`, `worker.js`, `dotnet/`; host/worker tests |
+| MVVM/React/companions — partial | Observable objects/collections, commands/bindings, React shared model/ref, companion integration sources | Exhaustive binding/lifecycle/production-scale qualification; companion functionality does not imply Excel feature parity | `events.js`, `react.js`, `integrations/`, runtime CI |
+| Collaboration — partial | Authenticated HTTP/SSE, durable ordered changes, field-level merge, conflicts, pending-edit recovery and presence | Microsoft coauthoring protocol, character-level CRDT, shared undo, enterprise identity/compliance, offline sync and horizontal scaling | `collaboration/*.js`, server/store/browser suites |
+| Packaging/sample — implemented pipeline | ESM/CommonJS consumers, declarations, standalone/site builds, npm/release/Pages workflows, executable multi-sheet studio | Qualification of each published artifact and all target runtimes on the exact released commit | `scripts/`, `.github/workflows/`, package/browser tests |
+| Blazor — separately pinned | Existing project/package infrastructure and runtime-source gitlink retained | Advance/qualify the pinned runtime independently; root changes do not by themselves publish these features in the Blazor NuGet packages | `blazor/`, existing `runtime-source` gitlink (unchanged) |
+
+## What this increment changes
+
+The calculation increment adds 15 available names: AGGREGATE, MAKEARRAY, ISOMITTED and 12 database functions. It also improves already-present SUBTOTAL and LAMBDA helpers. It corrects recursive LAMBDA error propagation and rejects unsupported nested helper arrays rather than silently taking their first element. Database criteria have an explicit cross-product work budget.
+
+The editing increment is reusable without the UI: immutable copy snapshots, nine paste modes, four arithmetic operations, transposition and blank skipping within the documented profile; anchored month/year and weekday series; sparse special-cell queries. It fixes copied formula errors, format replacement, validation-origin translation and transactional rollback. Unsupported combinations are rejected before commit rather than partially applied.
+
+The control owns the dialogs, so they are also available to other applications and React refs. The sample only wires commands and executable fixtures. Home/Data/Formulas expose Paste special, Fill series, Go to special and Calculation tools. Formula lab gains five examples without changing the five-sheet default workbook. Generic host/worker clients can invoke the new allowlisted routes. Installed-package/type tests cover the exported surface.
+
+See [editing contracts](editing.md), [calculation contracts](functions.md) and [qualification](verification-0.6.md).
+
+## Next implementation groups
+
+1. **Reference and calculation completeness:** 3D/multi-area reference values, intersection/union parsing and structural rewriting, iterative calculation, sheet-local/external names, shared coercion/signature metadata and Excel-generated differential fixtures. Add GROUPBY/PIVOTBY after their grouping/reduction/error contracts are specified.
+2. **Editing, layout and accessibility:** merged/spill-aware copy/move, correct cut-reference repair, discontiguous selection/operations, richer autofill patterns, full rich clipboard, format/rule catalogs, IME/RTL/screen-reader/device testing and optional GPU presentation without a second document model.
+3. **Office document fidelity:** preserve unsupported OOXML parts/relationships, future-function/dynamic-array metadata, chart/drawing and pivot-cache extensions, then add independent open/save/reopen fixtures. Keep native qualification separate from self-round-trip tests.
+4. **Data platform and automation:** pivot hierarchies/slicers/date grouping, connections and refresh, Power Query/M and DAX/model execution, solver/scenario/data-table engines, additional binary formats, macro/add-in hosting with explicit trust boundaries.
+5. **Runtime and collaboration qualification:** root/native/React/Blazor package identity, broader platform input/print tests, large-workbook benchmarks, character-level collaboration, robust offline reconciliation, identity/compliance and clustered persistence.
+
+These are remaining engineering projects, not disabled features disguised as finished implementations. Full Excel parity is still unfinished.
+
+## Primary target references
+
+- [Excel functions by category](https://support.microsoft.com/en-us/office/excel-functions-by-category-5f91f4e9-7b42-46d2-9bd1-63f26a86c0eb)
+- [AGGREGATE](https://support.microsoft.com/en-us/excel/functions/aggregate-function)
+- [DSUM and database criteria](https://support.microsoft.com/en-us/excel/functions/dsum-function)
+- [LAMBDA](https://support.microsoft.com/en-us/excel/functions/lambda-function), [MAKEARRAY](https://support.microsoft.com/en-us/excel/functions/makearray-function), [ISOMITTED](https://support.microsoft.com/en-us/excel/functions/isomitted-function)
+- [BYROW result requirements](https://support.microsoft.com/en-us/excel/functions/byrow-function)
+- [Excel paste options](https://support.microsoft.com/en-us/excel/paste-options)
+
+Documentation describes the target. Repository tests qualify only the implemented profile; no Microsoft desktop Excel oracle was run for this increment.

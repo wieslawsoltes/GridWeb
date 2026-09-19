@@ -10,3 +10,4 @@ export * from './data.js';
 export * from './layout.js';
 export * from './charts.js';
 export * from './references.js';
+export * from './editing.js';

@@ -53,7 +53,7 @@ The .NET 8/.NET 10 package wraps the same native grid/calculation engine in WebA
 
 ## Engine and editor
 
-Sparse workbooks/ranges, 330 available formula names, dependencies, arrays and LET/LAMBDA, binary lookups, distributions, matrices, complex/dated finance, A1/R1C1 translation, transactional editing/history, formatting, validation, conditional rules, tables, sorting/filtering, goal seek and regression. The Canvas editor supports native text editing, keyboard/pointer selections, clipboard/fill, resizing, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses the same engine, not separate mock data.
+Sparse workbooks/ranges, 345 available formula names, dependencies, arrays and LET/LAMBDA, binary lookups, distributions, matrices, complex/dated finance, A1/R1C1 translation, transactional editing/history, formatting, validation, conditional rules, tables, sorting/filtering, goal seek and regression. The Canvas editor supports native text editing, keyboard/pointer selections, clipboard/fill, resizing, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses the same engine, not separate mock data.
 
 [Calculation contracts](docs/functions.md) · [Core API](docs/api.md) · [React example](examples/react.jsx)
 
@@ -97,6 +97,12 @@ The Node CLI defaults to loopback port 8099 and serves `/studio`. Configure HTTP
 PascalCase APIs, PropertyChanged, collection notifications, RelayCommand and disposable bindings support .NET-style JavaScript. `dotnet/` contains the typed C# client and WPF/WinUI/Avalonia controls and samples embedding the same JavaScript engine. Native Windows WebView smoke tests exercise real RPC including pivot creation, refresh and drill-down. Exhaustive native input/accessibility and cross-platform qualification remain separate.
 
 `integrations/` contains Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb and QuikGraphWeb adapters. CI runs actual package tests with React 18/19. The dependency-free studio works without the optional companion bundle. [Bundle instructions](integrations/README.md) · [Native hosts](dotnet/README.md).
+
+## Excel compatibility and editing tools
+
+The [feature audit](docs/excel-feature-audit.md) inventories the implemented engine, controls, adapters and remaining Excel work. Version 0.6 adds all 12 database functions, reference-aware AGGREGATE/SUBTOTAL, MAKEARRAY, ISOMITTED and callable/recursive LAMBDA improvements. Availability inventories are generated and tested, not maintained as a parity percentage.
+
+Reusable range APIs now include `Capture`, `PasteSpecial`, `FillSeries` and `SpecialCells`. The grid exposes Paste special, Fill series and Go to special dialogs, with transpose/arithmetic paste, anchored date series, error handling and one-step undo. Home/Data/Formulas → **Calculation tools** opens executable examples; the default Formula lab also contains new calculations. [Editing API and explicit limits](docs/editing.md) · [Calculation contracts](docs/functions.md) · [Current qualification](docs/verification-0.6.md).
 
 ## Build, test and distribute
 

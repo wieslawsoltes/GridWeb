@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+Add the source-level Excel feature audit and generated, drift-tested function/API inventories (345 available names, not a parity claim). Implement 12 database functions, all AGGREGATE selectors/options with reference metadata, improved SUBTOTAL, MAKEARRAY, ISOMITTED, direct/recursive LAMBDA invocation and stricter helper-array/arity handling. Bound database criteria cross-product work.
+
+Add immutable copy snapshots; nine PasteSpecial modes, arithmetic/transpose/blank handling, exact format replacement and validation rebasing; linear/growth/anchored date series; sparse special-cell queries. Fix formula-error copying and transactional edge cases. Add reusable accessible editing dialogs, focus/read-only/lifecycle handling, fill/paste shortcuts, sample examples, host/worker commands, Office copy flags and declarations. Add 298 Node regressions, 12 Chromium groups and installed-package/type consumers. Existing native/React/Blazor qualification is not implied by local JavaScript tests.
+
 ## 0.5.0
 
 Add managed pivot reports with persistent definitions, 12 aggregations, multiple row/column fields and measures, filters, correctly aggregated totals, refresh, stale-state checks, drill-down and transactional history. Structural edits translate pivot references. Native XLSX exports now generate supported row-layout pivot definitions, typed cache definitions/records and connected package relationships; unsupported layouts require explicit flattening. Add import of the matching native subset, field-management studio commands, TypeScript and C# APIs, host/worker routes, schema validation fixtures and installed-package/browser/native tests. This is not arbitrary lossless or complete native Excel PivotTable compatibility.

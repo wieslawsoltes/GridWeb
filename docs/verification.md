@@ -1,5 +1,7 @@
 # Verification
 
+Latest increment: [0.6.0 verification](verification-0.6.md). The results below are historical recovery evidence, not current test totals.
+
 The supplied `GridWeb-0.1.0-source.zip` SHA-256 is `eaa753d563bc24d2be920bb5bca8bb419b266e2cd471c340542d57c58c9db918`. Its complete UTF-8 source was recovered directly. The incomplete initial `.bootstrap` fragments were not executed.
 
 On 2026-09-14 the recovered source passed 263 Node regression tests, strict TypeScript checks, browser/standalone build, and isolated npm tarball consumers. Chromium 144.0.7559.96 passed 34 browser groups with no uncaught page errors. These are local results; GitHub Actions results qualify the eventual remote commit separately.
