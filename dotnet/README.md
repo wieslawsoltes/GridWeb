@@ -13,4 +13,21 @@ await control.Client.GetRange("C1").SetFormulasAsync([["=SUM(A1:B2)"]]);
 var saved = await control.Client.SaveAsync();
 ```
 
+## Worksheet structure and reference formulas
+
+Version 0.7 adds typed extension methods in `GridWeb.Client`. Keep the existing `AddWorksheetAsync(name, token)` for append-only calls; the separate indexed method avoids changing its cancellation-token overload.
+
+```csharp
+await control.Client.AddWorksheetAtAsync("Inserted", 1); // Insert before current index 1.
+await control.Client.MoveWorksheetAsync("Inserted", 0); // Final zero-based position.
+await control.Client.GetRange("D1", "Sheet1").SetFormulasAsync([["=SUM((A1:A3,C1:C3))"]]);
+await control.Client.UndoAsync();
+```
+
+Negative indexes and blank identifiers are rejected by the typed client; the engine checks current worksheet count and ownership at execution time. `worksheets.add` with `index` and `worksheets.move` are also available through generic allowlisted RPC. Formula reference behavior is identical to the root engine's [documented profile](../docs/reference-semantics.md), not a second C# evaluator.
+
+The native smoke suite adds insertion, reorder/undo, 3-D recalculation, union, dynamic INDEX and inclusive-statistics assertions. The protocol test uses a synthetic transport and is explicitly distinct from actual native WebView checks. .NET compilation and Windows runtime qualification run in CI; a local JavaScript pass is not native proof.
+
+Avalonia initialization waits for `NativeWebView.AdapterCreated` before issuing navigation and accepts completion only for the bundled host URI. Disposal cancels initialization. A previous 0.6.0 main CI run timed out during navigation; waiting for Loaded alone did not prove adapter readiness. The explicit readiness path is based on the [official NativeWebView lifecycle](https://docs.avaloniaui.net/controls/web/nativewebview). This is not a guarantee against all platform/browser startup failures.
+
 The HTML host never navigates to user-provided URLs. Navigation/new windows are restricted, native network/filesystem capabilities are not exposed to formulas, and the host protocol uses explicit operation names. Native build, actual native WebView execution and interactive input/accessibility qualification are distinct evidence levels.

@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0",
+  "version": "0.7.0",
   "scope": "Core exports and public prototype members; instance fields, method signatures and semantic equivalence require the declarations and feature audit",
   "coreExports": [
     "AxisLayout",
@@ -172,6 +172,10 @@
       },
       {
         "name": "Get",
+        "kind": "method"
+      },
+      {
+        "name": "Move",
         "kind": "method"
       },
       {
@@ -843,6 +847,10 @@
       "set": true
     },
     {
+      "name": "MoveWorksheet",
+      "kind": "method"
+    },
+    {
       "name": "Notify",
       "kind": "method"
     },
@@ -912,6 +920,10 @@
       "set": true
     },
     {
+      "name": "ShowMoveWorksheet",
+      "kind": "method"
+    },
+    {
       "name": "ShowPasteSpecial",
       "kind": "method"
     },
@@ -964,6 +976,7 @@
     "src/calculation-aggregate.js",
     "src/calculation-base.js",
     "src/calculation-lambda.js",
+    "src/calculation-references.js",
     "src/calculation.js",
     "src/chart-svg.js",
     "src/charts.js",
@@ -987,6 +1000,7 @@
     "src/functions-database.js",
     "src/functions-engineering.js",
     "src/functions-extended.js",
+    "src/functions-inclusive.js",
     "src/functions-statistical.js",
     "src/functions-support.js",
     "src/functions.js",
@@ -1007,7 +1021,9 @@
     "src/pivots/ooxml.js",
     "src/print-presentation.js",
     "src/react.js",
+    "src/reference-syntax.js",
     "src/references.js",
+    "src/sheet-references.js",
     "src/worker.js",
     "src/xml.js",
     "src/zip.js"

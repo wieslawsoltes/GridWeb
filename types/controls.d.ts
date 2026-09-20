@@ -16,6 +16,7 @@ export class GridWebElement extends HTMLElement {
   PasteText(text: string): void; CopySelection(): Promise<string>; Paste(): Promise<void>;
   PasteSpecial(options?: PasteOptions): CellRange; FillSeries(options?: FillSeriesOptions): number;
   FindSpecialCells(type: SpecialCellType, options?: SpecialCellOptions): CellRange[];
+  MoveWorksheet(index: number, sheet?: Worksheet | string): Worksheet; ShowMoveWorksheet(): HTMLDialogElement;
   ShowPasteSpecial(): HTMLDialogElement; ShowFillSeries(): HTMLDialogElement; ShowGoToSpecial(): HTMLDialogElement;
   Print(): void; Notify(message: string): void; Dispose(): void;
 }

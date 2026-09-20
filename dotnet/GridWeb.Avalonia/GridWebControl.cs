@@ -10,6 +10,8 @@ namespace GridWeb.Avalonia;
 public sealed class GridWebControl : UserControl, IAsyncDisposable
 {
     private readonly NativeWebView _view = new();
+    private readonly TaskCompletionSource _adapterReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly CancellationTokenSource _lifetime = new();
     private HostSession? _session;
     private LocalHostDocument? _hostDocument;
     private Task? _initialization;
@@ -36,6 +38,9 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
     public string ViewMode { get => GetValue(ViewModeProperty); set => SetValue(ViewModeProperty, value); }
     public GridWebControl()
     {
+        // Loaded does not imply that the native browser adapter has finished creating.
+        // Subscribe before the control can be attached, so a fast adapter is not missed.
+        _view.AdapterCreated += (_, _) => _adapterReady.TrySetResult();
         Content = _view;
         Loaded += async (_, _) => { try { await InitializeAsync(); } catch (Exception e) { Error?.Invoke(this, e); } };
     }
@@ -53,11 +58,14 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
         var navigation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _view.NavigationStarted += (_, e) => { if (e.Request?.ToString() != _hostDocument?.FileUri.AbsoluteUri) e.Cancel = true; };
         _view.NewWindowRequested += (_, e) => e.Handled = true;
-        _view.NavigationCompleted += (_, e) => { if (e.IsSuccess) navigation.TrySetResult(); else navigation.TrySetException(new InvalidOperationException("Host navigation failed")); };
+        _view.NavigationCompleted += (_, e) => { if (e.Request?.ToString() != _hostDocument?.FileUri.AbsoluteUri) return; if (e.IsSuccess) navigation.TrySetResult(); else navigation.TrySetException(new InvalidOperationException("Host navigation failed")); };
         _hostDocument = new LocalHostDocument();
-        _view.Navigate(_hostDocument.FileUri); await navigation.Task.WaitAsync(TimeSpan.FromSeconds(20));
+        await _adapterReady.Task.WaitAsync(TimeSpan.FromSeconds(20), _lifetime.Token);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _view.Navigate(_hostDocument.FileUri);
+        await navigation.Task.WaitAsync(TimeSpan.FromSeconds(20), _lifetime.Token);
         _session = new HostSession(new DelegateJavaScriptTransport(InvokeOnUiAsync)); _session.Notification += OnNotification; _session.Error += (_, e) => Error?.Invoke(this, e);
-        await _session.InitializeAsync(); await ApplyAsync(); Ready?.Invoke(this, EventArgs.Empty);
+        await _session.InitializeAsync(_lifetime.Token); await ApplyAsync(); Ready?.Invoke(this, EventArgs.Empty);
     }
     private Task<string?> InvokeOnUiAsync(string script, CancellationToken token)
     {
@@ -85,5 +93,11 @@ public sealed class GridWebControl : UserControl, IAsyncDisposable
         }
         catch (Exception error) { _loading = false; Error?.Invoke(this, error); }
     }
-    public async ValueTask DisposeAsync() { if (_disposed) return; _disposed = true; if (_session is not null) await _session.DisposeAsync(); Content = null; _hostDocument?.Dispose(); }
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true; _lifetime.Cancel();
+        try { if (_session is not null) await _session.DisposeAsync(); }
+        finally { Content = null; _hostDocument?.Dispose(); _lifetime.Dispose(); }
+    }
 }

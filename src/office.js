@@ -100,7 +100,7 @@ export class Worksheet extends ClientObject {
   constructor(context, getter) {
     let resolved;
     const stable = () => { resolved ??= getter(); if (!resolved || !context._book._sheets.includes(resolved)) fail('ItemNotFound', 'Worksheet was not found or was deleted'); return resolved; };
-    super(context, stable, { name: { get:s=>s.Name, set:(s,v)=>s.Name=v }, id: { get:s=>s.Id }, position: { get:s=>context._book._sheets.indexOf(s) } });
+    super(context, stable, { name: { get:s=>s.Name, set:(s,v)=>s.Name=v }, id: { get:s=>s.Id }, position: { get:s=>context._book._sheets.indexOf(s), set:(s,v)=>context._book.Worksheets.Move(s,v) } });
   }
   getRange(address) { return new Range(this.context, () => this._get().GetRange(address)); }
   getRangeByIndexes(row, column, rowCount, columnCount) { return new Range(this.context, () => this._get().GetRangeByIndexes(row, column, rowCount, columnCount)); }

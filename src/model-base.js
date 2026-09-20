@@ -1,3 +1,5 @@
+import {mapFormulaReferences, referencePrefix} from './reference-syntax.js';
+import {rewriteWorkbookReferences, removedSheetReferences, movedSheetReferences} from './sheet-references.js';
 import {captureRange,pasteSpecial,fillSeries,specialCells} from './editing.js';
 import { EventSource, ObservableObject, RelayCommand } from './events.js';
 import { CalculationEngine, isFormula } from './calculation.js';
@@ -37,23 +39,31 @@ function transformRange(range, axis, at, count, remove) {
   const a = axis === 'row' ? 'r1' : 'c1', b = axis === 'row' ? 'r2' : 'c2';
   const p = interval(range[a], range[b], at, count, remove); return p ? { ...range, [a]: p[0], [b]: p[1] } : null;
 }
-function structuralFormula(formula, target, current, axis, at, count, remove) {
-  // Handle contiguous A1 ranges as a unit so deleted endpoints shrink the range.
-  const re = /"(?:[^"]|"")*"|(?:(?:'(?:[^']|'')+'|[A-Za-z_][\w.]*)!)?\$?[A-Za-z]{1,3}\$?[1-9]\d*(?::\$?[A-Za-z]{1,3}\$?[1-9]\d*)?/g;
-  const ordinary=formula.replace(re, (token, offset, all) => {
-    if (token[0] === '"' || /[\w.\[]/.test(all[offset - 1] ?? '') || /[\w.(\]]/.test(all[offset + token.length] ?? '')) return token;
-    let ref; try { ref = parseRange(token); } catch { return token; }
-    if ((ref.sheet ?? current).toUpperCase() !== target.toUpperCase()) return token;
-    const next = transformRange(ref, axis, at, count, remove); if (!next || next.r2 >= MAX_ROWS || next.c2 >= MAX_COLUMNS) return '#REF!';
-    const parts = token.slice(token.lastIndexOf('!') + 1).split(':'), a = parseCell(parts[0]), b = parseCell(parts[1] ?? parts[0]);
-    const render = (r, c, p) => (p.absoluteColumn ? '$' : '') + columnName(c) + (p.absoluteRow ? '$' : '') + (r + 1);
-    return (ref.sheet ? quoteSheet(ref.sheet) + '!' : '') + render(next.r1, next.c1, a) + (parts.length === 2 ? ':' + render(next.r2, next.c2, b) : '');
-  });
-  return rewriteAxisReferences(ordinary,(ref,refAxis,parts,token)=>{
-    if(refAxis!==axis||(ref.sheet??current).toUpperCase()!==target.toUpperCase())return token;
-    const next=transformRange(ref,axis,at,count,remove);if(!next||next.r2>=MAX_ROWS||next.c2>=MAX_COLUMNS)return '#REF!';
-    const indexes=axis==='row'?[next.r1,next.r2]:[next.c1,next.c2];
-    return (ref.sheet?quoteSheet(ref.sheet)+'!':'')+indexes.map((i,n)=>(parts[n].startsWith('$')?'$':'')+(axis==='row'?i+1:columnName(i))).join(':');
+function structuralFormula(formula, target, current, axis, at, count, remove, book) {
+  return mapFormulaReferences(formula, token => {
+    let ref; try { ref = parseRange(token.address); } catch { return token.raw; }
+    const sheet = token.sheet ?? current;
+    const parts = token.address.split(':'), fullAxis = /^\$?[A-Za-z]+$/.test(parts[0]) ? 'column' : /^\$?\d+$/.test(parts[0]) ? 'row' : null;
+    if (fullAxis && fullAxis !== axis) return token.raw;
+    if (token.sheetEnd != null && token.sheetEnd.toUpperCase() !== sheet.toUpperCase()) {
+      const names = book._sheets.map(s => s.Name.toUpperCase()), a = names.indexOf(sheet.toUpperCase()), b = names.indexOf(token.sheetEnd.toUpperCase()), t = names.indexOf(target.toUpperCase());
+      // One sheet cannot rewrite coordinates shared by every sheet in the span.
+      // Reject affected edits until grouped-sheet structural transforms are supported.
+      if (a >= 0 && b >= 0 && t >= Math.min(a,b) && t <= Math.max(a,b) && at <= ref[axis === 'row' ? 'r2' : 'c2']) throw new Error('Structural edit affects a 3-D reference; edit its source range explicitly first');
+      return token.raw;
+    }
+    if (sheet.toUpperCase() !== target.toUpperCase()) return token.raw;
+    const next = transformRange(ref, axis, at, count, remove);
+    if (!next || next.r2 >= MAX_ROWS || next.c2 >= MAX_COLUMNS) return '#REF!';
+    let body;
+    if (fullAxis) {
+      const indexes = axis === 'row' ? [next.r1,next.r2] : [next.c1,next.c2];
+      body = indexes.map((i,n) => (parts[n].startsWith('$') ? '$' : '') + (axis === 'row' ? i+1 : columnName(i))).join(':');
+    } else {
+      const render = (r,c,p) => (p.absoluteColumn?'$':'') + columnName(c) + (p.absoluteRow?'$':'') + (r+1);
+      body = render(next.r1,next.c1,parseCell(parts[0])) + (parts.length === 2 ? ':' + render(next.r2,next.c2,parseCell(parts[1])) : '');
+    }
+    return referencePrefix(token.sheet,token.sheetEnd) + body;
   });
 }
 export class Workbook extends ObservableObject {
@@ -158,17 +168,33 @@ export class WorksheetCollection {
   get Count() { return this.book._sheets.length; } get items() { return [...this.book._sheets]; }
   Get(nameOrIndex) { return typeof nameOrIndex === 'number' ? this.book._sheets[nameOrIndex] : this.book._sheets.find(s => s.Name.toUpperCase() === String(nameOrIndex).toUpperCase() || s.Id === nameOrIndex); }
   getItem(name) { const s = this.Get(name); if (!s) throw new RangeError('Worksheet not found'); return s; } getItemAt(index) { return this.getItem(index); }
-  Add(name) {
+  Add(name, index = this.Count) {
+    if (!Number.isInteger(index) || index < 0 || index > this.Count || this.Count >= 256) throw new RangeError('Invalid worksheet insertion index or sheet limit');
     if (!name) { let i = 1; while (this.Get('Sheet' + i)) i++; name = 'Sheet' + i; }
     if (!safeName(name) || this.Get(name)) throw new TypeError('Invalid or duplicate sheet name');
     const sheet = new Worksheet(this.book, name), active = this.book.ActiveWorksheet;
-    this.book._record(() => { this.book._sheets.push(sheet); if (!this.book.ActiveWorksheet) this.book.ActiveWorksheet = sheet; }, () => { this.book._sheets.splice(this.book._sheets.indexOf(sheet), 1); this.book.ActiveWorksheet = active; }, { type:'sheet-add', sheet }); return sheet;
+    this.book._record(() => { this.book._sheets.splice(index, 0, sheet); if (!this.book.ActiveWorksheet) this.book.ActiveWorksheet = sheet; }, () => { this.book._sheets.splice(this.book._sheets.indexOf(sheet), 1); this.book.ActiveWorksheet = active; }, { type:'sheet-add', sheet }); return sheet;
   }
-  add(name) { return this.Add(name); }
+  add(name, index) { return this.Add(name, index); }
   Remove(sheetOrName) {
-    const sheet = sheetOrName instanceof Worksheet ? sheetOrName : this.Get(sheetOrName); if (!sheet || sheet.Workbook!==this.book || this.Count <= 1) throw new RangeError('A workbook needs at least one worksheet');
+    const sheet = sheetOrName instanceof Worksheet ? sheetOrName : this.Get(sheetOrName);
+    if (!sheet || !this.book._sheets.includes(sheet) || this.Count <= 1) throw new RangeError('A workbook needs at least one attached worksheet');
     const index = this.book._sheets.indexOf(sheet), active = this.book.ActiveWorksheet;
-    this.book._record(() => { this.book._sheets.splice(index, 1); if (this.book.ActiveWorksheet === sheet) this.book.ActiveWorksheet = this.book._sheets[0]; }, () => { this.book._sheets.splice(index, 0, sheet); this.book.ActiveWorksheet = active; }, { type:'sheet-remove', sheet });
+    this.book.Transaction('Remove worksheet', () => {
+      rewriteWorkbookReferences(this.book, formula => removedSheetReferences(formula, sheet, this.book._sheets));
+      this.book._record(() => { this.book._sheets.splice(index, 1); if (this.book.ActiveWorksheet === sheet) this.book.ActiveWorksheet = this.book._sheets[0]; }, () => { this.book._sheets.splice(index, 0, sheet); this.book.ActiveWorksheet = active; }, {type:'sheet-remove',sheet});
+    });
+  }
+  Move(sheetOrName, index) {
+    const sheet = sheetOrName instanceof Worksheet ? sheetOrName : this.Get(sheetOrName), before = this.book._sheets.slice(), from = before.indexOf(sheet);
+    if (from < 0 || !Number.isInteger(index) || index < 0 || index >= this.Count) throw new RangeError('Invalid worksheet or final index');
+    if (from === index) return sheet;
+    const after = before.slice(); after.splice(from, 1); after.splice(index, 0, sheet);
+    this.book.Transaction('Move worksheet', () => {
+      rewriteWorkbookReferences(this.book, formula => movedSheetReferences(formula, sheet, before, after));
+      this.book._record(() => {this.book._sheets = after.slice();}, () => {this.book._sheets = before.slice();}, {type:'sheet-move',sheet,index});
+    });
+    return sheet;
   }
   [Symbol.iterator]() { return this.book._sheets[Symbol.iterator](); }
 }
@@ -179,11 +205,7 @@ export class Worksheet {
     const other = this.Workbook.Worksheets.Get(value); if (!safeName(value) || (other && other !== this)) throw new TypeError('Invalid or duplicate sheet name');
     const old = this._name;
     this.Workbook.Transaction('Rename worksheet', () => {
-      for (const s of this.Workbook._sheets) for (const n of s._formulaCells) {
-        const raw = s._cells.get(n); const formula = renameSheetReferences(raw.input,old,value);
-        if (formula !== raw.input) s._writeRecord(n, { ...raw, input:formula });
-      }
-      for (const [name, v] of this.Workbook._names) if (typeof v === 'string' && v.startsWith('=')) this.Workbook.DefineName(name, renameSheetReferences(v,old,value));
+      rewriteWorkbookReferences(this.Workbook, formula => renameSheetReferences(formula,old,value));
       this.Workbook._record(() => this._name = value, () => this._name = old, { type:'sheet-rename', sheet:this });
     });
   }
@@ -250,16 +272,16 @@ export class Worksheet {
     const book=this.Workbook,before=book._sheets.map(s=>({sheet:s,cells:[...s._cells].map(([n,v])=>[n,clone(v)]),meta:clone(s._meta)})),namesBefore=[...book._names];
     const after=before.map(snapshot=>{
       const target=snapshot.sheet===this,cells=[];for(const [n,record] of snapshot.cells){const p=cellPosition(n);let position=n;if(target){const v=p[axis];if(remove&&v>=at&&v<at+count)continue;if(v>=at)p[axis]+=remove?-count:count;position=key(p.row,p.column);}
-        const next=clone(record);if(isFormula(next))next.input=structuralFormula(next.input,this.Name,snapshot.sheet.Name,axis,at,count,remove);cells.push([position,next]);}
+        const next=clone(record);if(isFormula(next))next.input=structuralFormula(next.input,this.Name,snapshot.sheet.Name,axis,at,count,remove,book);cells.push([position,next]);}
       const meta=clone(snapshot.meta);if(target){const dim=axis==='row'?'rows':'columns',out={};for(const [i,v]of Object.entries(meta[dim])){const n=+i;if(remove&&n>=at&&n<at+count)continue;out[n>=at?n+(remove?-count:count):n]=v;}meta[dim]=out;
         meta.merges=meta.merges.map(r=>transformRange(r,axis,at,count,remove)).filter(Boolean);for(const field of ['tables','conditionalFormats','validations','charts'])meta[field]=meta[field].map(item=>({...item,range:transformRange(item.range,axis,at,count,remove)})).filter(item=>item.range);if(meta.filter)meta.filter.range=transformRange(meta.filter.range,axis,at,count,remove);if(meta.filter&&!meta.filter.range)meta.filter=null;
         if(meta.print.area)meta.print.area=transformRange(meta.print.area,axis,at,count,remove);
         for(const chart of meta.charts){const position=chart[axis];chart[axis]=position<at?position:remove?Math.max(at,position-count):Math.min(limit-1,position+count);}
         const frozen=axis==='row'?'freezeRows':'freezeColumns';if(at<meta[frozen])meta[frozen]=Math.min(100,Math.max(at,meta[frozen]+(remove?-count:count)));
 
-      }for(const list of [meta.validations,meta.conditionalFormats])for(const rule of list)for(const prop of ['formula','formula1','formula2'])if(typeof rule[prop]==='string')rule[prop]=structuralFormula(rule[prop],this.Name,snapshot.sheet.Name,axis,at,count,remove);return{sheet:snapshot.sheet,cells,meta};
+      }for(const list of [meta.validations,meta.conditionalFormats])for(const rule of list)for(const prop of ['formula','formula1','formula2'])if(typeof rule[prop]==='string')rule[prop]=structuralFormula(rule[prop],this.Name,snapshot.sheet.Name,axis,at,count,remove,book);return{sheet:snapshot.sheet,cells,meta};
     });
-    const namesAfter=namesBefore.map(([n,v])=>[n,typeof v==='string'&&v.startsWith('=')?structuralFormula(v,this.Name,this.Name,axis,at,count,remove):v]);
+    const namesAfter=namesBefore.map(([n,v])=>[n,typeof v==='string'&&v.startsWith('=')?structuralFormula(v,this.Name,this.Name,axis,at,count,remove,book):v]);
     const apply=(snapshots,names)=>{for(const snap of snapshots){snap.sheet._cells=new Map(snap.cells.map(([n,v])=>[n,clone(v)]));snap.sheet._formulaCells=new Set(snap.cells.filter(([,v])=>isFormula(v)).map(([n])=>n));snap.sheet._meta=clone(snap.meta);snap.sheet._used=null;}book._names=new Map(names);book.Calculation.Reset();for(const snap of snapshots)snap.sheet._applyFilter();};
     book._record(()=>apply(after,namesAfter),()=>apply(before,namesBefore),{type:remove?'delete-'+axis:'insert-'+axis,sheet:this,at,count});
   }

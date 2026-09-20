@@ -1,3 +1,4 @@
+import {mapFormulaReferences, referencePrefix} from './reference-syntax.js';
 /** GridWeb addressing. Public numeric indexes are zero-based. */
 export const MAX_ROWS = 1048576;
 export const MAX_COLUMNS = 16384;
@@ -50,11 +51,15 @@ export function boundedCells(a, limit = MAX_OPERATION_CELLS) {
 }
 /** Rewrites cell references, ignoring string literals, identifiers and function names. */
 export function rewriteReferences(formula, transform) {
-  const re = /"(?:[^"]|"")*"|(?:(?:'(?:[^']|'')+'|[A-Za-z_][\w.]*)!)?\$?[A-Za-z]{1,3}\$?[1-9]\d*/g;
-  return String(formula).replace(re, (token, offset, all) => {
-    if (token[0] === '"' || /[\w.\[]/.test(all[offset - 1] ?? '') || /[\w.(\]]/.test(all[offset + token.length] ?? '')) return token;
-    const s = splitSheet(token); let p; try { p = parseCell(s.address); } catch { return token; }
-    return transform(p, s.sheet, token);
+  return mapFormulaReferences(formula, ref => {
+    const parts = ref.address.split(':');
+    if (!parts.every(p => /^\$?[A-Za-z]{1,3}\$?[1-9]\d*$/.test(p))) return ref.raw;
+    try { parts.forEach(parseCell); } catch { return ref.raw; }
+    return parts.map((part, i) => {
+      const sheet = i === 0 ? (ref.sheetEnd == null ? ref.sheet : `${ref.sheet}:${ref.sheetEnd}`) : null;
+      const token = (i === 0 ? referencePrefix(ref.sheet, ref.sheetEnd) : '') + part;
+      return transform(parseCell(part), sheet, token);
+    }).join(':');
   });
 }
 export function shiftFormula(formula, dr, dc) {
@@ -72,14 +77,17 @@ export function shiftFormula(formula, dr, dc) {
 }
 /** Rewrite whole-column / whole-row references without touching quoted strings or structured names. */
 export function rewriteAxisReferences(formula, transform) {
-  const re = /"(?:[^"]|"")*"|(?:(?:'(?:[^']|'')+'|[A-Za-z_][\w.]*)!)?(?:\$?[A-Za-z]{1,3}:\$?[A-Za-z]{1,3}|\$?[1-9]\d*:\$?[1-9]\d*)/g;
-  return String(formula).replace(re,(token,offset,all)=>{
-    if(token[0]==='"'||/[\w.\[]/.test(all[offset-1]??'')||/[\w.(\]]/.test(all[offset+token.length]??''))return token;
-    const s=splitSheet(token);let range;try{range=parseRange(token);}catch{return token;}
-    return transform(range,/^[\$]?[A-Za-z]/.test(s.address)?'column':'row',s.address.split(':'),token);
+  return mapFormulaReferences(formula, ref => {
+    if (!/^(?:\$?[A-Za-z]{1,3}:\$?[A-Za-z]{1,3}|\$?[1-9]\d*:\$?[1-9]\d*)$/.test(ref.address)) return ref.raw;
+    let range; try { range = parseRange(ref.address); } catch { return ref.raw; }
+    range.sheet = ref.sheetEnd == null ? ref.sheet : `${ref.sheet}:${ref.sheetEnd}`;
+    return transform(range, /^[\$]?[A-Za-z]/.test(ref.address) ? 'column' : 'row', ref.address.split(':'), ref.raw);
   });
 }
 export function renameSheetReferences(formula, previous, next) {
-  const rename=(sheet,token)=>sheet?.toUpperCase()===previous.toUpperCase()?quoteSheet(next)+'!'+token.slice(token.lastIndexOf('!')+1):token;
-  return rewriteAxisReferences(rewriteReferences(formula,(_p,sheet,token)=>rename(sheet,token)),(range,_axis,_parts,token)=>rename(range.sheet,token));
+  return mapFormulaReferences(formula, ref => {
+    const matches = name => name?.toUpperCase() === previous.toUpperCase();
+    if (!matches(ref.sheet) && !matches(ref.sheetEnd)) return ref.raw;
+    return referencePrefix(matches(ref.sheet) ? next : ref.sheet, matches(ref.sheetEnd) ? next : ref.sheetEnd) + ref.address;
+  });
 }

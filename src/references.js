@@ -1,3 +1,4 @@
+import {readReference, referencePrefix} from './reference-syntax.js';
 import {MAX_ROWS,MAX_COLUMNS,columnName,parseRange,parseCell,splitSheet,quoteSheet,rewriteReferences,rewriteAxisReferences} from './address.js';
 function originPoint(origin) {
   const p=typeof origin==='string'?parseCell(origin):origin??{row:0,column:0};
@@ -19,7 +20,7 @@ export function a1ToR1C1(formula,origin='A1') {
 }
 const relative='(?:\\[[+-]?\\d+\\]|\\d*)';
 const body=`(?:R${relative}C${relative}|R${relative}:R${relative}|C${relative}:C${relative})`;
-const rcToken=new RegExp(`^(?:(?:'(?:[^']|'')+'|[A-Za-z_][\\w.]*)!)?${body}(?![\\w.\\[(])`,'i');
+const rcToken=new RegExp(`^(?:(?:'(?:[^']|'')+'|[A-Za-z_][\\w.]*)(?::(?:'(?:[^']|'')+'|[A-Za-z_][\\w.]*))?!)?${body}(?![\\w.\\[(])`,'i');
 function coordinate(part,origin,max){
   const absolute=part!==''&&!part.startsWith('['),value=absolute?Number(part)-1:origin+(part?Number(part.slice(1,-1)):0);
   if(!Number.isInteger(value)||value<0||value>=max)throw new RangeError('Reference outside worksheet');
@@ -37,7 +38,8 @@ export function r1c1ToA1(formula,origin='A1') {
         const cell=/^R(\[[+-]?\d+\]|\d*)C(\[[+-]?\d+\]|\d*)$/i.exec(s.address);
         if(cell){const r=coordinate(cell[1],p.row,MAX_ROWS),c=coordinate(cell[2],p.column,MAX_COLUMNS);replacement=(c.absolute?'$':'')+columnName(c.value)+(r.absolute?'$':'')+(r.value+1);}
         else {const parts=s.address.split(':'),row=parts[0][0].toUpperCase()==='R';replacement=parts.map(part=>{const c=coordinate(part.slice(1),row?p.row:p.column,row?MAX_ROWS:MAX_COLUMNS);return(c.absolute?'$':'')+(row?c.value+1:columnName(c.value));}).join(':');}
-        replacement=sheetPrefix(s.sheet)+replacement;
+        const prefix=token.includes('!')?readReference(token.slice(0,token.lastIndexOf('!')+1)+'A1'):null;
+        replacement=referencePrefix(prefix?.sheet??null,prefix?.sheetEnd??null)+replacement;
       }catch{replacement='#REF!';}
       out+=replacement;i+=token.length;continue;
     }
