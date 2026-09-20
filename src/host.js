@@ -32,7 +32,12 @@ export function createHostBridge(control,{postMessage=()=>{}}={}){
   'sheet.freeze':r=>{sheet(r).FreezePanes(r.rows??0,r.columns??0);return true;},
   'sheet.insertRows':r=>{sheet(r).InsertRows(r.index,r.count??1);return true;},'sheet.deleteRows':r=>{sheet(r).DeleteRows(r.index,r.count??1);return true;},
   'sheet.insertColumns':r=>{sheet(r).InsertColumns(r.index,r.count??1);return true;},'sheet.deleteColumns':r=>{sheet(r).DeleteColumns(r.index,r.count??1);return true;},
-  'names.define':r=>{control.Workbook.DefineName(r.name,r.value);return true;},
+  'names.define':r=>{(r.sheet==null?control.Workbook:sheet(r)).Names.Add(r.name,r.value,r.options??{});return true;},
+  'names.createFromSelection':r=>(r.scopeSheet==null?control.Workbook:sheet({...r,sheet:r.scopeSheet})).Names.CreateFromSelection(range(r),r.options??{topRow:true}),
+  'names.list':r=>r.all?control.Workbook.GetDefinedNames():(r.sheet==null?control.Workbook:sheet(r)).Names.Items,
+  'names.get':r=>(r.sheet==null?control.Workbook:sheet(r)).Names.GetDefinition(r.name)??null,
+  'names.rename':r=>{(r.sheet==null?control.Workbook:sheet(r)).Names.Rename(r.name,r.newName);return true;},
+  'names.remove':r=>(r.sheet==null?control.Workbook:sheet(r)).Names.Remove(r.name),
   'capabilities':()=>({version:1,methods:Object.keys(methods),formulaFunctions:control.Workbook.Calculation.FunctionNames,maxRows:1048576,maxColumns:16384,maxOperationCells:250000})
  };
  let subscription;function subscribe(){subscription?.Dispose();subscription=control.Workbook.Changed.Subscribe(e=>postMessage(encode({type:'workbook-changed',revision:e.Revision,label:e.Label})));}subscribe();

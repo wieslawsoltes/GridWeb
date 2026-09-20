@@ -54,3 +54,7 @@ Interoperability references:
 - https://learn.microsoft.com/en-us/office/dev/add-ins/excel/excel-add-ins-ranges-set-format
 
 These references explain target patterns. The executable tests establish only the contracts implemented here.
+
+## Named items (0.8)
+
+Workbook/worksheet `names` collections support deferred add, getItem and loaded items. Named items expose loaded name/scope/type/value, editable formula/comment/visible, getRange, worksheet and delete. Missing/foreign/unsupported operations reject before batch publication. Scope is fixed and name is read-only in this Office-style profile. See [naming contract](defined-names.md).

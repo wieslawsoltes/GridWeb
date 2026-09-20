@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+Recover and complete independent workbook/local name collections, metadata/context IDs, safe rename, direct evaluation/range APIs and CreateFromSelection boundary labels. Preserve reference-valued LET/LAMBDA bindings and scope-correct recursion, with memoized probes and bounded errors. Preserve ordinary JSON/OOXML scope/comment/hidden state; reject unsupported relative/null/deleted-context exports explicitly.
+
+Add reusable Define name, Name Manager and Create from Selection dialogs and executable Named formulas sample. Extend Office-style named items, host/worker/C# commands, declarations and installed consumers. Fix recursive edit+rename, qualified ISOMITTED, name/table/R1C1 collisions and stale identity cases. Add 153 Node tests and 19 naming browser groups; native smoke requires 28 assertions per framework. Fix release source archives for gitlinks without including submodule/private/untracked contents. No claim of full Excel, Office.js or native OOXML equivalence; pinned Blazor runtime remains unchanged.
+
 ## 0.7.0
 
 Implement bounded 3-D reference values, unions/intersections, dynamic colon ranges and reference-form INDEX. Add AREAS, ISREF, SHEET, SHEETS, AVERAGEA, MAXA, MINA, VARA, VARPA, STDEVA and STDEVPA (356 available names). Extend reference-aware aggregation, 3-D HSTACK/VSTACK, adjacent structured table columns and A1/R1C1 conversion. Preserve reference provenance and invalidate initially empty dependencies. Share formula scanning across copy, rename and structural rewrites.

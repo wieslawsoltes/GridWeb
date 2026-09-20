@@ -1,3 +1,4 @@
+import {nameOwners, mapQualifiedNames} from './defined-names.js';
 /** Transactional reference repair shared by worksheet rename, removal and reordering. */
 import {mapFormulaReferences, referencePrefix} from './reference-syntax.js';
 const same = (a,b) => a?.toUpperCase() === b?.toUpperCase();
@@ -17,8 +18,8 @@ export function rewriteWorkbookReferences(book, transform) {
       if (JSON.stringify(before) !== JSON.stringify(after)) book._record(() => {sheet._meta[field] = structuredClone(after);}, () => {sheet._meta[field] = structuredClone(before);}, {type:field,sheet});
     }
   }
-  for (const [name,value] of book._names) if (typeof value === 'string' && value.startsWith('=')) {
-    const next = transform(value); if (next !== value) book.DefineName(name,next);
+  for (const owner of nameOwners(book)) for (const [name,value] of owner._names) if (typeof value === 'string' && value.startsWith('=')) {
+    const next = transform(value); if (next !== value) owner.Names.Update(name,next);
   }
 }
 function span(ref, sheets) {
@@ -27,7 +28,7 @@ function span(ref, sheets) {
 }
 const render = (ref, sheets) => sheets.length ? referencePrefix(sheets[0].Name, sheets.length > 1 ? sheets.at(-1).Name : null) + ref.address : '#REF!';
 export function removedSheetReferences(formula, removed, sheets) {
-  return mapFormulaReferences(formula, ref => {
+  return mapFormulaReferences(mapQualifiedNames(formula,t=>same(t.sheet,removed.Name)?'#REF!':referencePrefix(t.sheet)+t.v), ref => {
     if (ref.sheetEnd == null) return same(ref.sheet,removed.Name) ? '#REF!' : ref.raw;
     const items = span(ref,sheets);
     return items?.includes(removed) ? render(ref,items.filter(s => s !== removed)) : ref.raw;

@@ -40,3 +40,22 @@ using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
 try { await client.MoveWorksheetAsync("Sheet1", 0, cancellation.Token); throw new Exception("Expected cancellation"); } catch (OperationCanceledException) { }
 Require(count == callsBeforeInvalid, "Invalid or cancelled calls do not invoke the transport");
 Console.WriteLine("GridWeb.Client protocol and worksheet command tests passed (not a native WebView runtime test).");
+
+await client.DefineScopedNameAsync("LocalRate", 3, "North", new DefinedNameOptions { Comment = "Local", Hidden = false });
+Require(requests[^1].GetProperty("method").GetString() == "names.define", "Name define route");
+Require(requests[^1].GetProperty("sheet").GetString() == "North" && requests[^1].GetProperty("options").GetProperty("comment").GetString() == "Local", "Scoped name options payload");
+Require(!requests[^1].GetProperty("options").TryGetProperty("contextSheetId", out _), "Omit unset name options");
+await client.ListDefinedNamesAsync(all: true);
+Require(requests[^1].GetProperty("all").GetBoolean(), "All name scopes requested");
+await client.GetDefinedNameAsync("LocalRate", "North");
+Require(requests[^1].GetProperty("method").GetString() == "names.get", "Name get route");
+await client.RenameDefinedNameAsync("LocalRate", "NewRate", "North");
+Require(requests[^1].GetProperty("newName").GetString() == "NewRate", "Name rename payload");
+await client.RemoveDefinedNameAsync("NewRate", "North");
+Require(requests[^1].GetProperty("method").GetString() == "names.remove", "Name remove route");
+var nameCalls = count;
+try { await client.DefineScopedNameAsync("Name", 1, options: new DefinedNameOptions { Comment = new string('x', 256) }); throw new Exception("Expected oversized comment rejection"); } catch (ArgumentOutOfRangeException) { }
+try { await client.RenameDefinedNameAsync("Name", ""); throw new Exception("Expected blank new name rejection"); } catch (ArgumentException) { }
+try { await client.ListDefinedNamesAsync(token: cancellation.Token); throw new Exception("Expected cancellation"); } catch (OperationCanceledException) { }
+Require(count == nameCalls, "Invalid and cancelled name calls do not reach transport");
+Console.WriteLine("GridWeb.Client scoped-name protocol checks passed.");

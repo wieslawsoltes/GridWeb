@@ -1,3 +1,4 @@
+import {exportDefinedNames, importDefinedName} from './names-ooxml.js';
 import { Workbook } from './model.js';
 import { isError } from './errors.js';
 import { MAX_COLUMNS, MAX_OPERATION_CELLS, cellAddress, parseCell, parseRange, rangeAddress, quoteSheet, shiftFormula } from './address.js';
@@ -77,7 +78,7 @@ export function exportXlsx(book,{onWarning=()=>{}}={}){
     }
     const path=`xl/worksheets/sheet${si+1}.xml`;files[path]=XML+`<worksheet xmlns="${NS}" xmlns:r="${REL}"><dimension ref="${sheet.UsedRange.Address}"/><sheetViews><sheetView workbookViewId="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>${cols?`<cols>${cols}</cols>`:''}<sheetData>${data}</sheetData>${sheet.IsProtected?'<sheetProtection sheet="1" objects="1" scenarios="1"/>':''}${filter}${merges}${conditional}${validations}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup paperSize="${sheet._meta.print.paper==='Letter'?1:9}" orientation="${sheet._meta.print.orientation}" scale="${Math.round(sheet._meta.print.scale*100)}"/>${drawing}${notes}${tables.length?`<tableParts count="${tables.length}">${tables.join('')}</tableParts>`:''}</worksheet>`;if(rels.length)files[relPath(path)]=relationships(rels);addType(path,'spreadsheetml.worksheet');workbookRels.push(relationship('sheet'+(si+1),'worksheet',`worksheets/sheet${si+1}.xml`));
   }
-  const defined=[...book._names].map(([name,value])=>`<definedName name="${x(name)}">${x(typeof value==='string'&&value.startsWith('=')?value.slice(1):typeof value==='string'?'"'+value.replace(/"/g,'""')+'"':value)}</definedName>`);
+  const defined=exportDefinedNames(book,x);
   book._sheets.forEach((s,i)=>{if(s._meta.print.area)defined.push(`<definedName name="_xlnm.Print_Area" localSheetId="${i}">${x(quoteSheet(s.Name)+'!'+rangeAddress(s._meta.print.area))}</definedName>`);if(s._meta.print.repeatRows)defined.push(`<definedName name="_xlnm.Print_Titles" localSheetId="${i}">${x(quoteSheet(s.Name)+'!$1:$'+s._meta.print.repeatRows)}</definedName>`);});
   files['xl/workbook.xml']=XML+`<workbook xmlns="${NS}" xmlns:r="${REL}"><workbookPr date1904="0"/><bookViews><workbookView activeTab="${Math.max(0,book._sheets.indexOf(book.ActiveWorksheet))}"/></bookViews><sheets>${book._sheets.map((s,i)=>`<sheet name="${x(s.Name)}" sheetId="${i+1}" r:id="sheet${i+1}"/>`).join('')}</sheets>${defined.length?`<definedNames>${defined.join('')}</definedNames>`:''}<calcPr calcId="191029" fullCalcOnLoad="1" forceFullCalc="1"/></workbook>`;
   files['xl/styles.xml']=stylePart(styles,dxfs);workbookRels.push(relationship('styles','styles','styles.xml'));files['xl/_rels/workbook.xml.rels']=relationships(workbookRels);files['_rels/.rels']=relationships([relationship('officeDocument','officeDocument','xl/workbook.xml')]);addType('xl/workbook.xml','spreadsheetml.sheet.main');addType('xl/styles.xml','spreadsheetml.styles');
@@ -135,7 +136,7 @@ export async function importXlsx(input){
     }
     snapshot.sheets.push(sheet);
   }
-  for(const n of descendants(child(root,'definedNames'),'definedName')){const sheet=snapshot.sheets[+n.attrs.localSheetId];if(n.attrs.name==='_xlnm.Print_Area'){if(sheet)try{sheet.meta.print.area=parseRange(n.text);}catch{warnings.push('Multiple print areas are not supported.');}}else if(n.attrs.name==='_xlnm.Print_Titles'){const m=/\$?(\d+):\$?(\d+)/.exec(n.text);if(sheet&&m)sheet.meta.print.repeatRows=+m[2]-+m[1]+1;}else if(!n.attrs.name.startsWith('_xlnm.'))snapshot.names.push([n.attrs.name,'='+n.text]);}
+  for(const n of descendants(child(root,'definedNames'),'definedName')){const sheet=snapshot.sheets.find(s=>s.id==='sheet-'+n.attrs.localSheetId);if(n.attrs.name==='_xlnm.Print_Area'){if(sheet)try{sheet.meta.print.area=parseRange(n.text);}catch{warnings.push('Multiple print areas are not supported.');}}else if(n.attrs.name==='_xlnm.Print_Titles'){const m=/\$?(\d+):\$?(\d+)/.exec(n.text);if(sheet&&m)sheet.meta.print.repeatRows=+m[2]-+m[1]+1;}else if(!n.attrs.name.startsWith('_xlnm.'))importDefinedName(snapshot,n,warnings);}
   const active=+descendants(root,'workbookView')[0]?.attrs.activeTab||0;snapshot.activeSheet=snapshot.sheets[active]?.id;
   for(const[path]of files)if(/(?:vbaProject\.bin|externalLinks\/|pivotTables\/|connections\.xml|queryTables\/|slicer|threadedComment|media\/)/i.test(path))warnings.push('Not imported: '+path);
   if(!snapshot.sheets.length)throw new Error('No supported worksheets');const workbook=Workbook.FromJSON(snapshot);

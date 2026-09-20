@@ -1,6 +1,6 @@
 import { error } from './errors.js';
 import { parseRange } from './address.js';
-import { readReference } from './reference-syntax.js';
+import { readReference, readQualifiedName } from './reference-syntax.js';
 export function tokenize(source) {
   source = source.startsWith('=') ? source.slice(1) : source;
   if (source.length > 8192) throw error('#VALUE!', 'Formula exceeds 8192 characters');
@@ -11,12 +11,13 @@ export function tokenize(source) {
     else if ((m = /^"((?:[^"]|"")*)"/.exec(rest))) token = {t: 'value', v: m[1].replace(/""/g, '"')};
     else if ((m = /^#(?:REF!|DIV\/0!|VALUE!|NAME\?|N\/A|NUM!|NULL!|SPILL!|CALC!|CIRC!)/i.exec(rest))) token = {t: 'value', v: error(m[0].toUpperCase())};
     else if ((ref = readReference(rest))) { m = [ref.raw]; token = {t: 'ref', v: ref.address, sheet: ref.sheet, sheetEnd: ref.sheetEnd}; }
+    else if ((ref = readQualifiedName(rest))) { m = [ref.raw]; token = {t:'name',v:ref.name.toUpperCase(),sheet:ref.sheet}; }
     else if ((m = /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(rest))) token = {t: 'value', v: Number(m[0])};
     else if ((m = /^([A-Za-z_\\][\w.\\]*)(\[(?:[^\[\]]|\[[^\[\]]*\])*\])/.exec(rest))) token = {t: 'table', v: m[1], selector: m[2]};
     else if ((m = /^([A-Za-z_\\][\w.\\]*)/.exec(rest))) token = {t: 'name', v: m[0].replace(/^(?:(?:_xlfn|_xlws)\.)+/i, '').toUpperCase()};
     else if ((m = /^(?:<>|<=|>=|[+\-*/^&=<>():,;%{}#@])/.exec(rest))) token = {t: m[0], v: m[0]};
     else throw error('#NAME?', 'Unexpected formula token at ' + pos);
-    pos += m[0].length; tokens.push(token);
+    token.start=pos;pos += m[0].length;token.end=pos;tokens.push(token);
     if (tokens.length > 4096) throw error('#VALUE!', 'Too many tokens');
   }
   // Whitespace is an operator only between potential reference expressions, not trivia.
@@ -50,8 +51,8 @@ export function parseFormula(source) {
       catch { throw error('#REF!', 'Reference outside worksheet'); }
     } else if (t.t === 'table') n = {type: 'table', name: t.v, selector: t.selector};
     else if (t.t === 'name') {
-      if (peek() === '(') n = {type: 'call', name: t.v, args: argumentsList()};
-      else n = /^(TRUE|FALSE)$/.test(t.v) ? {type: 'value', value: t.v === 'TRUE'} : {type: 'name', name: t.v};
+      if (peek() === '(') n = {type: 'call', name: t.v, ...(t.sheet!=null?{sheet:t.sheet}:{}), start:t.start,end:t.end, args: argumentsList()};
+      else n = t.sheet==null && /^(TRUE|FALSE)$/.test(t.v) ? {type: 'value', value: t.v === 'TRUE'} : {type: 'name', name: t.v, ...(t.sheet!=null?{sheet:t.sheet}:{}),start:t.start,end:t.end};
     } else if (t.t === '(') { n = expression(); expect(')'); }
     else if (['+', '-', '@'].includes(t.t)) n = {type: 'unary', op: t.t, value: expression(6, union)};
     else if (t.t === '{') {

@@ -1,8 +1,8 @@
 /** Editing dialogs shared by every GridWebElement host. Model mutations stay in the engine. */
 const css = `dialog{box-sizing:border-box;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--grid-line);border-radius:12px;padding:20px;background:var(--grid-bg);color:var(--grid-fg);font:14px system-ui;box-shadow:0 12px 60px #0005}dialog::backdrop{background:#0005}form{display:grid;gap:12px}h2,p{margin:0}h2{font-size:20px}label{display:grid;gap:5px}label.check{display:flex;align-items:center;gap:8px}input,select,button{box-sizing:border-box;font:inherit;color:inherit;background:var(--grid-bg);border:1px solid var(--grid-line);border-radius:5px;padding:9px;min-width:0}input[type=checkbox]{width:18px;height:18px}button{cursor:pointer;min-height:40px}button.primary{background:var(--grid-accent);color:var(--grid-bg);font-weight:600}footer{display:flex;gap:8px;justify-content:flex-end}small,.hint{font-size:12px;line-height:1.5;opacity:.85}[role=alert]{color:#c44444;font-size:13px;white-space:pre-wrap}[role=alert]:empty{display:none}.results{display:grid;gap:5px;max-height:220px;overflow:auto}.results button{text-align:left}.results:empty{display:none}`;
 let sequence = 0;
-const element = (tag, text) => { const value = document.createElement(tag); if (text != null) value.textContent = text; return value; };
-function dialog(grid, title, applyText, apply) {
+export const element = (tag, text) => { const value = document.createElement(tag); if (text != null) value.textContent = text; return value; };
+export function dialog(grid, title, applyText, apply) {
   for (const existing of grid._editingDialogs ?? []) existing.close();
   const modal = element('dialog'), form = element('form'), heading = element('h2', title), error = element('p');
   heading.id = 'grid-editing-' + ++sequence; modal.setAttribute('aria-labelledby', heading.id);
@@ -22,7 +22,7 @@ function dialog(grid, title, applyText, apply) {
   const open = () => { form.append(error, footer); grid.shadowRoot.append(modal); modal.showModal(); };
   return {form, open, modal, close};
 }
-function select(form, title, choices, initial) {
+export function select(form, title, choices, initial) {
   const label = element('label', title), input = element('select'); input.setAttribute('aria-label', title);
   for (const [value, caption] of choices) { const option = element('option', caption); option.value = value; input.append(option); }
   if (initial != null) input.value = initial; label.append(input); form.append(label); return input;

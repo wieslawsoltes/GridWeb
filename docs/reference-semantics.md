@@ -94,3 +94,7 @@ Tests: `reference-operators.test.mjs`, `reference-operators-types.ts`, `referenc
 - Microsoft [AVERAGEA](https://support.microsoft.com/en-us/excel/functions/averagea-function) and [structured references](https://support.microsoft.com/en-us/excel/using-structured-references-with-excel-tables).
 
 These describe the compatibility target. Only the repository's explicit implementation/tests establish the supported GridWeb profile.
+
+## 0.8 additions
+
+[Scoped names and reference bindings](defined-names.md) add local definitions and preserve direct reference-valued LET/LAMBDA aliases, arguments and returns. Their supported subset supersedes those two earlier gaps. Existing 3-D consumers, grouped structural limitations and remaining special-form restrictions still apply.

@@ -1,3 +1,5 @@
+import {resolveDefinedName, nameContext} from './defined-names.js';
+import {bindingReference, referenceBinding} from './calculation-bindings.js';
 import {advancedReference, areasOf, singleReference, readReferenceValues, referenceFunction, REFERENCE_FUNCTIONS, THREE_D_FUNCTIONS} from './calculation-references.js';
 import {CalculationEngine as BaseCalculationEngine} from './calculation-base.js';
 import {parseFormula} from './parser.js';
@@ -22,27 +24,67 @@ function lifted(args,fn){
 export class CalculationEngine extends BaseCalculationEngine {
   get FunctionNames(){return [...new Set([...super.FunctionNames,...REFERENCE_FUNCTIONS,'AGGREGATE','MAKEARRAY','ISOMITTED'])].sort();}
   Evaluate(formula,context){
-    const root=!this._lambdaBudget;if(root)this._lambdaBudget={calls:0,depth:0};
-    try{return super.Evaluate(formula,context);}finally{if(root)this._lambdaBudget=null;}
+    const root=!this._lambdaBudget;if(root){this._lambdaBudget={calls:0,depth:0};this._bindingMemo=new WeakMap();}
+    try{return super.Evaluate(formula,context);}finally{if(root){this._lambdaBudget=null;this._bindingMemo=null;}}
   }
-  _invoke(lambda,values){
+  _materialize(value,ctx){const ref=bindingReference(value);return ref?this._read(ref,ctx):value;}
+  _binding(node,ctx){if(ctx.depth>128)return error('#NUM!','Binding nesting limit');const ref=this._reference(node,ctx);return ref?referenceBinding(this,ref,ctx):this._eval(node,ctx);}
+  _memoBinding(node,ctx,compute){
+    // Cache only callable/LET results, by lexical environment and caller location.
+    // Reference probing followed by a value read must not execute a function twice.
+    const root=this._bindingMemo??(this._bindingMemo=new WeakMap()),vars=ctx.vars;
+    let scopes=root.get(vars);if(!scopes){scopes=new Map();root.set(vars,scopes);}
+    const id=[ctx.sheet?.Id,ctx.row,ctx.col,ctx.key].join(':');let nodes=scopes.get(id);if(!nodes){nodes=new WeakMap();scopes.set(id,nodes);}
+    if(!nodes.has(node))nodes.set(node,compute());return nodes.get(node);
+  }
+  _letBinding(node,ctx){return this._memoBinding(node,ctx,()=>{
+    const args=node.args;if(args.length<3||args.length%2===0||args.length>253)return error('#VALUE!','LET argument count');
+    let vars=new Map(ctx.vars),omitted=new Set(ctx.omitted??[]);
+    for(let i=0;i<args.length-1;i+=2){
+      if(args[i].type!=='name'||args[i].sheet!=null)return error('#NAME?','Invalid LET binding');
+      const value=this._binding(args[i+1],{...ctx,vars,omitted,depth:ctx.depth+1});
+      // Earlier closures retain the binding environment at their definition.
+      vars=new Map(vars);vars.set(args[i].name,value);omitted=new Set(omitted);omitted.delete(args[i].name);
+    }
+    return this._binding(args.at(-1),{...ctx,vars,omitted,depth:ctx.depth+1});
+  });}
+  _namedBinding(node,ctx){return this._memoBinding(node,ctx,()=>{
+    const definition=resolveDefinedName(this.Workbook,node.name,ctx.sheet,node.sheet);
+    if(!definition)return error('#NAME?','Unknown name: '+node.name);
+    if(ctx.names?.has(definition.key))return error('#CIRC!','Circular defined name');
+    const names=new Set(ctx.names??[]);names.add(definition.key);
+    const resolved=nameContext(this.Workbook,definition,{...ctx,names,depth:ctx.depth+1});
+    return typeof resolved.value==='string'&&resolved.value.startsWith('=')?this._binding(parseFormula(resolved.value),resolved.ctx):resolved.value?.error?error(resolved.value.error):resolved.value;
+  });}
+  _callBinding(node,ctx){return this._memoBinding(node,ctx,()=>{
+    const callee=node.type==='invoke'?node.callee:{type:'name',name:node.name,sheet:node.sheet};
+    const lambda=this._eval(callee,ctx);if(isError(lambda))return lambda;
+    return this._invoke(lambda,node.args.map(a=>a.omitted?OMITTED:this._binding(a,ctx)),true);
+  });}
+  _isNamedCall(node,ctx){return node.type==='call'&&(node.sheet!=null||!this.FunctionNames.includes(node.name)&&(ctx.vars?.has(node.name)||resolveDefinedName(this.Workbook,node.name,ctx.sheet)));}
+  _invoke(lambda,values,preserve=false){
+    if(isError(lambda))return lambda;
     if(lambda?.type!=='lambda'||values.length!==lambda.parameters.length)return error('#VALUE!','Incorrect Parameters');
     const budget=this._lambdaBudget??{calls:0,depth:0};
     if(++budget.calls>MAX_OPERATION_CELLS*4||budget.depth>=128)return error('#NUM!','Lambda evaluation limit');
     const vars=new Map(lambda.context.vars),omitted=new Set(lambda.context.omitted??[]);
     lambda.parameters.forEach((p,i)=>{vars.set(p,values[i]===OMITTED?null:values[i]);omitted.delete(p);if(values[i]===OMITTED)omitted.add(p);});
     budget.depth++;
-    try{return this._eval(lambda.body,{...lambda.context,vars,omitted,names:new Set(),depth:lambda.context.depth+1});}finally{budget.depth--;}
+    try{const ctx={...lambda.context,vars,omitted,names:new Set(),depth:lambda.context.depth+1},value=this._binding(lambda.body,ctx);return preserve?value:this._materialize(value,ctx);}finally{budget.depth--;}
   }
   /** Resolve reference-valued expressions without collapsing their origin/type. */
   _reference(node,ctx,depth=0){
     if(!node)return null;if(depth>64)throw error('#NUM!','Reference resolution limit');
+    if(node.type==='call'&&node.sheet!=null)return bindingReference(this._callBinding(node,ctx));
     const advanced=advancedReference(this,node,ctx,depth);if(advanced!==undefined)return advanced;
     if(node.type==='ref')return node;
-    if(node.type==='name'&&!ctx.vars?.has(node.name)){
-      const value=this.Workbook._names.get(node.name);
-      if(typeof value==='string'&&value.startsWith('='))return this._reference(parseFormula(value),ctx,depth+1);
+    if(node.type==='name'){
+      if(node.sheet==null&&ctx.vars?.has(node.name))return bindingReference(ctx.vars.get(node.name));
+      const definition=resolveDefinedName(this.Workbook,node.name,ctx.sheet,node.sheet);
+      if(definition)return bindingReference(this._namedBinding(node,ctx));
     }
+    if(node.type==='call'&&node.sheet==null&&node.name==='LET')return bindingReference(this._letBinding(node,ctx));
+    if(node.type==='invoke'||this._isNamedCall(node,ctx))return bindingReference(this._callBinding(node,ctx));
     if(node.type==='call'&&node.name==='INDIRECT'){
       if(node.args.length<1||node.args.length>2)throw error('#VALUE!','INDIRECT argument count');
       const a=node.args,source=text(this._eval(a[0],ctx)),useA1=a[1]==null||a[1].value===null||truth(this._eval(a[1],ctx));
@@ -64,6 +106,12 @@ export class CalculationEngine extends BaseCalculationEngine {
   _evaluate(node,ctx){
     if(!node||ctx.depth>128)return error('#NUM!','Evaluation nesting limit');
     const next={...ctx,depth:ctx.depth+1},ev=n=>this._eval(n,next);
+    if(node.type==='name'){
+      if(node.sheet==null&&ctx.vars?.has(node.name))return this._materialize(ctx.vars.get(node.name),next);
+      const definition=resolveDefinedName(this.Workbook,node.name,ctx.sheet,node.sheet);
+      if(!definition){const ref=this._reference(node,next);return ref?this._read(ref,next):error('#NAME?','Unknown name: '+node.name);}
+      return this._materialize(this._namedBinding(node,next),next);
+    }
     if(node.type==='unary'&&node.op==='@'){
       const ref=this._reference(node.value,next);
       if(ref){singleReference(ref);const s=this._sheet(ref.sheet,ctx.sheet);if(!s)return error('#REF!');
@@ -74,7 +122,7 @@ export class CalculationEngine extends BaseCalculationEngine {
     }
     if(node.type==='unary'&&node.op==='#')return this._read(this._reference(node,next),next);
     if(node.type==='ref'&&node.sheetEnd!=null||node.type==='refop'||node.type==='table')return this._read(this._reference(node,next),next);
-    if(node.type==='invoke')return this._invoke(ev(node.callee),node.args.map(a=>a.omitted?OMITTED:ev(a)));
+    if(node.type==='invoke'||this._isNamedCall(node,next))return this._materialize(this._callBinding(node,next),next);
     if(node.type!=='call')return super._evaluate(node,ctx);
     const {name,args}=node;
     if(REFERENCE_FUNCTIONS.includes(name))return referenceFunction(this,name,args,next);
@@ -96,18 +144,13 @@ export class CalculationEngine extends BaseCalculationEngine {
       }
       return this.Functions.get(name)(...values);
     }
-    if(name==='LET'){
-      if(args.length<3||args.length%2===0||args.length>253)return error('#VALUE!','LET argument count');
-      const vars=new Map(ctx.vars),omitted=new Set(ctx.omitted??[]);
-      for(let i=0;i<args.length-1;i+=2){if(args[i].type!=='name')return error('#NAME?','Invalid LET binding');const value=this._eval(args[i+1],{...next,vars,omitted});vars.set(args[i].name,value);omitted.delete(args[i].name);}
-      return this._eval(args.at(-1),{...next,vars,omitted});
-    }
+    if(name==='LET')return this._materialize(this._letBinding(node,next),next);
     if(name==='LAMBDA'){
       const parameters=args.slice(0,-1);
-      if(!args.length||parameters.length>253||parameters.some(p=>p.type!=='name'||p.name.includes('.'))||new Set(parameters.map(p=>p.name)).size!==parameters.length)return error('#VALUE!','Invalid LAMBDA parameters');
+      if(!args.length||parameters.length>253||parameters.some(p=>p.type!=='name'||p.sheet!=null||p.name.includes('.'))||new Set(parameters.map(p=>p.name)).size!==parameters.length)return error('#VALUE!','Invalid LAMBDA parameters');
       return {type:'lambda',parameters:parameters.map(p=>p.name),body:args.at(-1),context:next};
     }
-    if(name==='ISOMITTED')return args.length===1?(args[0].type==='name'&&!!ctx.omitted?.has(args[0].name)):error('#VALUE!','ISOMITTED argument count');
+    if(name==='ISOMITTED')return args.length===1?(args[0].type==='name'&&args[0].sheet==null&&!!ctx.omitted?.has(args[0].name)):error('#VALUE!','ISOMITTED argument count');
     if(LAMBDA_HELPERS.has(name))return evaluateLambdaHelper(this,name,args,ev);
     if(name==='AGGREGATE'||name==='SUBTOTAL')return referenceAggregate(this,name,args,next,ev);
     if(Object.hasOwn(DATABASE_FUNCTIONS,name)){
@@ -152,11 +195,6 @@ export class CalculationEngine extends BaseCalculationEngine {
       return fn(...args.map(arg=>{const ref=this._reference(arg,next);if(ref){if(ref.threeD&&!THREE_D_FUNCTIONS.has(name))return error('#VALUE!','This function does not accept 3-D references');const value=this._read(ref,next,true);return Array.isArray(value)?value:[[value]];}const v=ev(arg);if(arg.type==='table')return matrix(v);if(name==='COUNT'&&!Array.isArray(v)&&!isError(v)&&v!==null&&v!==''){try{return number(v);}catch{return v;}}return numericAggregate.has(name)&&!Array.isArray(v)?number(v):v;}));
     }
     if(fn&&scalarFunctions.has(name))return lifted(args.map(ev),fn);
-    if(!fn&&(ctx.vars.has(name)||this.Workbook._names.has(name))){
-      const lambda=ev({type:'name',name});
-      if(isError(lambda))return lambda;
-      if(lambda?.type==='lambda')return this._invoke(lambda,args.map(a=>a.omitted?OMITTED:ev(a)));
-    }
     return super._evaluate(node,ctx);
   }
 }

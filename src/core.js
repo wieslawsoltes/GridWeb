@@ -11,3 +11,4 @@ export * from './layout.js';
 export * from './charts.js';
 export * from './references.js';
 export * from './editing.js';
+export {DefinedNameCollection, validateDefinedName, MAX_DEFINED_NAMES} from './defined-names.js';

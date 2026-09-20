@@ -60,3 +60,7 @@ Bundlers should resolve their worker URL to the packaged worker entry. `Call` ac
 ## Extension and safety
 
 Use the calculation engine's explicit function registration rather than dynamic JavaScript evaluation. Imported workbooks cannot register arbitrary scripts. See declarations for event, table, pivot, chart, print and host data shapes, and the compatibility matrix for unsupported Excel semantics.
+
+## Scoped names (0.8)
+
+`Workbook.Names` and `Worksheet.Names` expose Create/Add/Update/Rename/Remove/Has/Get/GetDefinition/Items/Count/Evaluate/GetRange/CreateFromSelection. Scope-safe mutations share model transactions and undo. Grid methods ShowNameManager/ShowDefineName/ShowCreateNamesFromSelection and guarded DefineName use the same engine. See [contract and examples](defined-names.md).

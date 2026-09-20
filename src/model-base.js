@@ -1,3 +1,4 @@
+import {DefinedNameCollection, loadDefinedNames, nameOwners, nameDefinitions, MAX_DEFINED_NAMES, mapQualifiedNames, namedRange} from './defined-names.js';
 import {mapFormulaReferences, referencePrefix} from './reference-syntax.js';
 import {rewriteWorkbookReferences, removedSheetReferences, movedSheetReferences} from './sheet-references.js';
 import {captureRange,pasteSpecial,fillSeries,specialCells} from './editing.js';
@@ -68,9 +69,9 @@ function structuralFormula(formula, target, current, axis, at, count, remove, bo
 }
 export class Workbook extends ObservableObject {
   constructor(options = {}) {
-    super(); this.Name = options.name ?? 'Book1'; this.Locale = options.locale ?? 'en-US'; this._sheets = []; this._names = new Map(); this._history = []; this._redo = []; this._transaction = null; this._replaying = false; this.Revision = 0; this.Changed = new EventSource(); this.Calculated = new EventSource(); this.CalculationMode = 'Automatic'; this.HistoryLimit = 100;
+    super(); this.Name = options.name ?? 'Book1'; this.Locale = options.locale ?? 'en-US'; this._sheets = []; this._names = new Map(); this._nameInfo = new Map(); this._history = []; this._redo = []; this._transaction = null; this._replaying = false; this.Revision = 0; this.Changed = new EventSource(); this.Calculated = new EventSource(); this.CalculationMode = 'Automatic'; this.HistoryLimit = 100;
     this.Calculation = new CalculationEngine(this); this.Worksheets = new WorksheetCollection(this);
-    this.Names = { Add: (name, value) => this.DefineName(name, value), Get: name => this._names.get(name.toUpperCase()), Remove: name => this.RemoveName(name), [Symbol.iterator]: () => this._names[Symbol.iterator]() };
+    this.Names = new DefinedNameCollection(this);
     this.ActiveWorksheet = null;
     if (options.createSheet !== false) { const s = new Worksheet(this, 'Sheet1'); this._sheets.push(s); this.ActiveWorksheet = s; }
   }
@@ -110,14 +111,10 @@ export class Workbook extends ObservableObject {
   Undo() { const tx = this._history.pop(); if (!tx) return false; for (const a of tx.actions.toReversed()) a.undo(); this._redo.push(tx); this._flush(tx.changes, 'Undo ' + tx.label); return true; }
   Redo() { const tx = this._redo.pop(); if (!tx) return false; for (const a of tx.actions) a.redo(); this._history.push(tx); this._flush(tx.changes, 'Redo ' + tx.label); return true; }
   ClearHistory() { this._history.length = this._redo.length = 0; }
-  DefineName(name, value) {
-    name = String(name).toUpperCase(); if (!/^[A-Z_\\][\w.\\]*$/.test(name)) throw new TypeError('Invalid defined name');
-    try { parseCell(name); throw new TypeError('A name cannot be a cell reference'); } catch (e) { if (e instanceof TypeError) throw e; }
-    const old = this._names.get(name), existed = this._names.has(name); value = validatePrimitive(value);
-    this._record(() => this._names.set(name, value), () => existed ? this._names.set(name, old) : this._names.delete(name), { type: 'name', name });
-  }
-  RemoveName(name) { name = name.toUpperCase(); if (!this._names.has(name)) return false; const old = this._names.get(name); this._record(() => this._names.delete(name), () => this._names.set(name, old), { type: 'name', name }); return true; }
-  GetRange(address) { const ref = parseRange(address), sheet = ref.sheet ? this.Worksheets.Get(ref.sheet) : this.ActiveWorksheet; if (!sheet) throw new RangeError('Worksheet not found'); return sheet.GetRange(ref); }
+  DefineName(name, value, options = {}) { return this.Names.Add(name, value, options); }
+  RemoveName(name) { return this.Names.Remove(name); }
+  GetDefinedNames() { return nameDefinitions(this); }
+  GetRange(address) { let ref;try{ref=parseRange(address);}catch{return namedRange(this,address,this.ActiveWorksheet);}const sheet = ref.sheet ? this.Worksheets.Get(ref.sheet) : this.ActiveWorksheet; if (!sheet) throw new RangeError('Worksheet not found'); return sheet.GetRange(ref); }
   Find(query, { matchCase = false, wholeCell = false, formulas = false, sheet = null } = {}) {
     query = String(query); if (!matchCase) query = query.toLowerCase(); const result = [];
     for (const s of sheet ? [sheet] : this._sheets) for (const [n] of s._cells) { const { row, column } = cellPosition(n); const cell = s.GetCell(row, column); let value = formulas ? String(cell.Input ?? '') : cell.Text; if (!matchCase) value = value.toLowerCase(); if (wholeCell ? value === query : value.includes(query)) result.push({ sheet: s, row, column, address: cellAddress(row, column), value: cell.Value }); }
@@ -128,13 +125,14 @@ export class Workbook extends ObservableObject {
       for (const hit of found) { const cell = hit.sheet.GetCell(hit.row, hit.column), s = String(cell.Input ?? ''); const pattern = new RegExp(String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), options.matchCase ? 'g' : 'gi'); cell.Input = options.wholeCell ? replacement : s.replace(pattern, () => replacement); }
     }); return found.length;
   }
-  ToJSON() { return { format: 'GridWeb', version: 1, name: this.Name, locale: this.Locale, activeSheet: this.ActiveWorksheet?.Id, names: [...this._names], sheets: this._sheets.map(s => s.ToJSON()) }; }
+  ToJSON() { return { format: 'GridWeb', version: 1, name: this.Name, locale: this.Locale, activeSheet: this.ActiveWorksheet?.Id, names: [...this.Names], nameMetadata: [...this._nameInfo.values()].map(clone), sheets: this._sheets.map(s => s.ToJSON()) }; }
   static FromJSON(data) {
     if (typeof data === 'string') { if (data.length > 32 * 1024 * 1024) throw new RangeError('JSON file too large'); data = JSON.parse(data); }
     if (!data || data.format !== 'GridWeb' || data.version !== 1 || !Array.isArray(data.sheets) || !data.sheets.length || data.sheets.length > 256) throw new TypeError('Unsupported workbook document');
     const book = new Workbook({ createSheet: false, name: String(data.name ?? 'Book1').slice(0, 255), locale: data.locale ?? 'en-US' }); let count = 0; const ids = new Set();
     for (const source of data.sheets) {
       if (!safeName(source.name) || book._sheets.some(s => s.Name.toUpperCase() === source.name.toUpperCase())) throw new TypeError('Invalid or duplicate sheet name');
+      if (typeof source.id === 'string' && ids.has(source.id)) throw new TypeError('Duplicate worksheet identity');
       const s = new Worksheet(book, source.name); if (typeof source.id === 'string' && /^[\w-]{1,80}$/.test(source.id) && !ids.has(source.id)) s.Id = source.id; ids.add(s.Id);
       if (!Array.isArray(source.cells) || (count += source.cells.length) > MAX_OPERATION_CELLS) throw new RangeError('Workbook cell limit');
       for (const item of source.cells) {
@@ -143,7 +141,11 @@ export class Workbook extends ObservableObject {
       }
       s._meta = sanitizeMeta(source.meta ?? {}); s._applyFilter(); book._sheets.push(s);
     }
-    for (const [name, value] of data.names ?? []) { if (!/^[A-Z_\\][\w.\\]*$/i.test(name)) throw new TypeError('Invalid name'); book._names.set(name.toUpperCase(), validatePrimitive(value)); }
+    book.ActiveWorksheet = book._sheets.find(s => s.Id === data.activeSheet) ?? book._sheets[0];
+    loadDefinedNames(book,data.names,data.nameMetadata);
+    data.sheets.forEach((source,i)=>loadDefinedNames(book._sheets[i],source.names,source.nameMetadata));
+    if(nameOwners(book).reduce((sum,o)=>sum+o._names.size,0)>MAX_DEFINED_NAMES)throw new RangeError('Defined-name limit');
+    if(book._sheets.some(s=>s._meta.tables.some(t=>nameOwners(book).some(o=>o.Names.Has(t.name)))))throw new TypeError('Stored name conflicts with a table');
     book.ActiveWorksheet = book._sheets.find(s => s.Id === data.activeSheet) ?? book._sheets[0]; book.Calculation.Reset(); book.Calculate(); let changed=false;for (const s of book._sheets) changed=s._applyFilter()||changed;if(changed){book.Calculation.Reset();book.Calculate();}return book;
   }
   Dispose() { this.Changed.Clear(); this.Calculated.Clear(); this.Calculation.Reset(); super.Dispose(); }
@@ -199,13 +201,13 @@ export class WorksheetCollection {
   [Symbol.iterator]() { return this.book._sheets[Symbol.iterator](); }
 }
 export class Worksheet {
-  constructor(workbook, name) { this.Workbook = workbook; this.Id = makeId(); this._name = name; this._cells = new Map(); this._formulaCells = new Set(); this._meta = defaultMeta(); this._filtered = new Set(); this._used = null; }
+  constructor(workbook, name) { this.Workbook = workbook; this.Id = makeId(); this._name = name; this._names = new Map(); this._nameInfo = new Map(); this.Names = new DefinedNameCollection(this); this._cells = new Map(); this._formulaCells = new Set(); this._meta = defaultMeta(); this._filtered = new Set(); this._used = null; }
   get Name() { return this._name; }
   set Name(value) {
     const other = this.Workbook.Worksheets.Get(value); if (!safeName(value) || (other && other !== this)) throw new TypeError('Invalid or duplicate sheet name');
     const old = this._name;
     this.Workbook.Transaction('Rename worksheet', () => {
-      rewriteWorkbookReferences(this.Workbook, formula => renameSheetReferences(formula,old,value));
+      rewriteWorkbookReferences(this.Workbook, formula => mapQualifiedNames(renameSheetReferences(formula,old,value),token=>token.sheet.toUpperCase()===old.toUpperCase()?referencePrefix(value)+token.v:referencePrefix(token.sheet)+token.v));
       this.Workbook._record(() => this._name = value, () => this._name = old, { type:'sheet-rename', sheet:this });
     });
   }
@@ -213,7 +215,7 @@ export class Worksheet {
   get CellCount() { return this._cells.size; } get RowCount() { return MAX_ROWS; } get ColumnCount() { return MAX_COLUMNS; }
   GetCell(rowOrAddress, column) { const p = typeof rowOrAddress === 'string' ? parseCell(rowOrAddress) : { row:rowOrAddress, column }; cellAddress(p.row,p.column); return new Cell(this,p.row,p.column); }
   getCell(r,c) { return this.GetCell(r,c); }
-  GetRange(address) { const ref = typeof address === 'string' ? parseRange(address) : { ...address }; if (ref.sheet && ref.sheet.toUpperCase() !== this.Name.toUpperCase()) return this.Workbook.Worksheets.getItem(ref.sheet).GetRange({ ...ref, sheet:null }); cellAddress(ref.r1,ref.c1); cellAddress(ref.r2,ref.c2); if (ref.r2 < ref.r1 || ref.c2 < ref.c1) throw new RangeError('Invalid range'); return new CellRange(this,ref); }
+  GetRange(address) { let ref;if(typeof address==='string'){try{ref=parseRange(address);}catch{return namedRange(this.Workbook,address,this);}}else ref={...address}; if (ref.sheet && ref.sheet.toUpperCase() !== this.Name.toUpperCase()) return this.Workbook.Worksheets.getItem(ref.sheet).GetRange({ ...ref, sheet:null }); cellAddress(ref.r1,ref.c1); cellAddress(ref.r2,ref.c2); if (ref.r2 < ref.r1 || ref.c2 < ref.c1) throw new RangeError('Invalid range'); return new CellRange(this,ref); }
   getRange(address) { return this.GetRange(address); }
   GetRangeByIndexes(row,column,rowCount,columnCount) { return this.GetRange({ r1:row,c1:column,r2:row+rowCount-1,c2:column+columnCount-1 }); }
   get UsedRange() { if (!this._used) { let r1=MAX_ROWS,c1=MAX_COLUMNS,r2=0,c2=0; const include=(a,b,c,d)=>{r1=Math.min(r1,a);c1=Math.min(c1,b);r2=Math.max(r2,c);c2=Math.max(c2,d);};for (const n of this._cells.keys()) { const p=cellPosition(n); include(p.row,p.column,p.row,p.column); }for(const merge of this._meta.merges)include(merge.r1,merge.c1,merge.r2,merge.c2);for(const[key,array]of this.Workbook.Calculation.arrays){if(!key.startsWith(this.Id+':'))continue;const p=parseCell(key.slice(this.Id.length+1));include(p.row,p.column,p.row+array.length-1,p.column+array[0].length-1);}this._used={r1:r1===MAX_ROWS?0:r1,c1:c1===MAX_COLUMNS?0:c1,r2,c2}; } return this.GetRange(this._used); }
@@ -244,7 +246,7 @@ export class Worksheet {
   FreezePanes(rows=1,columns=0){this.Workbook.Transaction('Freeze panes',()=>{this.FrozenRows=rows;this.FrozenColumns=columns;});}
   Protect(){this._setMeta('protected',true);} Unprotect(){this._setMeta('protected',false);} get IsProtected(){return this._meta.protected;}
   AddTable(address,name='Table1') {
-    if(!/^[A-Za-z_][\w.]*$/.test(name)||this.Workbook._sheets.some(s=>s._meta.tables.some(t=>t.name.toUpperCase()===name.toUpperCase())))throw new TypeError('Invalid or duplicate table name');
+    if(nameOwners(this.Workbook).some(o=>o.Names.Has(name))||!/^[A-Za-z_][\w.]*$/.test(name)||this.Workbook._sheets.some(s=>s._meta.tables.some(t=>t.name.toUpperCase()===name.toUpperCase())))throw new TypeError('Invalid or duplicate table name');
     const r=this.GetRange(address).Bounds;if(r.r1===r.r2)throw new RangeError('A table needs headers and data');if(this._meta.tables.some(t=>intersects(t.range,r)))throw new Error('Tables cannot overlap');
     const table={name,range:r,style:'green',totals:false};this.Workbook.Transaction('Add table',()=>{const headers=new Set();for(let c=r.c1;c<=r.c2;c++){const cell=this.GetCell(r.r1,c),base=cell.Text||'Column'+(c-r.c1+1);let title=base,n=2;while(headers.has(title.toUpperCase()))title=base+n++;headers.add(title.toUpperCase());cell.Value=title;}this._setMeta('tables',[...this._meta.tables,table]);});return clone(table);
   }
@@ -269,7 +271,8 @@ export class Worksheet {
   _structure(axis,at,count,remove){
     const limit=axis==='row'?MAX_ROWS:MAX_COLUMNS;if(!Number.isInteger(at)||!Number.isInteger(count)||at<0||count<1||at+count>limit)throw new RangeError('Invalid structural edit');if(this.IsProtected)throw new Error('Worksheet is protected');
     if(!remove)for(const n of this._cells.keys()){const p=cellPosition(n);if(p[axis]>=limit-count)throw new Error('Insert would discard nonempty cells at the sheet boundary');}
-    const book=this.Workbook,before=book._sheets.map(s=>({sheet:s,cells:[...s._cells].map(([n,v])=>[n,clone(v)]),meta:clone(s._meta)})),namesBefore=[...book._names];
+    for(const owner of nameOwners(this.Workbook))for(const item of owner.Names.Items)if(item.baseAddress!=null&&(owner===this||owner===this.Workbook&&(item.contextSheetId==null||item.contextSheetId===this.Id)))throw new Error('Structural edits with explicit relative-origin names are not supported; use absolute names first');
+    const book=this.Workbook,before=book._sheets.map(s=>({sheet:s,cells:[...s._cells].map(([n,v])=>[n,clone(v)]),meta:clone(s._meta)})),namesBefore=nameOwners(book).map(owner=>({owner,values:[...owner._names]}));
     const after=before.map(snapshot=>{
       const target=snapshot.sheet===this,cells=[];for(const [n,record] of snapshot.cells){const p=cellPosition(n);let position=n;if(target){const v=p[axis];if(remove&&v>=at&&v<at+count)continue;if(v>=at)p[axis]+=remove?-count:count;position=key(p.row,p.column);}
         const next=clone(record);if(isFormula(next))next.input=structuralFormula(next.input,this.Name,snapshot.sheet.Name,axis,at,count,remove,book);cells.push([position,next]);}
@@ -281,11 +284,14 @@ export class Worksheet {
 
       }for(const list of [meta.validations,meta.conditionalFormats])for(const rule of list)for(const prop of ['formula','formula1','formula2'])if(typeof rule[prop]==='string')rule[prop]=structuralFormula(rule[prop],this.Name,snapshot.sheet.Name,axis,at,count,remove,book);return{sheet:snapshot.sheet,cells,meta};
     });
-    const namesAfter=namesBefore.map(([n,v])=>[n,typeof v==='string'&&v.startsWith('=')?structuralFormula(v,this.Name,this.Name,axis,at,count,remove,book):v]);
-    const apply=(snapshots,names)=>{for(const snap of snapshots){snap.sheet._cells=new Map(snap.cells.map(([n,v])=>[n,clone(v)]));snap.sheet._formulaCells=new Set(snap.cells.filter(([,v])=>isFormula(v)).map(([n])=>n));snap.sheet._meta=clone(snap.meta);snap.sheet._used=null;}book._names=new Map(names);book.Calculation.Reset();for(const snap of snapshots)snap.sheet._applyFilter();};
+    const namesAfter=namesBefore.map(({owner,values})=>({owner,values:values.map(([n,v])=>{
+      const id=owner._nameInfo.get(n)?.contextSheetId,context=owner===book?(id==null?book.ActiveWorksheet:book._sheets.find(s=>s.Id===id)):owner;
+      return[n,typeof v==='string'&&v.startsWith('=')?structuralFormula(v,this.Name,context?.Name??'\u0000',axis,at,count,remove,book):v];
+    })}));
+    const apply=(snapshots,names)=>{for(const snap of snapshots){snap.sheet._cells=new Map(snap.cells.map(([n,v])=>[n,clone(v)]));snap.sheet._formulaCells=new Set(snap.cells.filter(([,v])=>isFormula(v)).map(([n])=>n));snap.sheet._meta=clone(snap.meta);snap.sheet._used=null;}for(const entry of names)entry.owner._names=new Map(entry.values);book.Calculation.Reset();for(const snap of snapshots)snap.sheet._applyFilter();};
     book._record(()=>apply(after,namesAfter),()=>apply(before,namesBefore),{type:remove?'delete-'+axis:'insert-'+axis,sheet:this,at,count});
   }
-  ToJSON(){return{id:this.Id,name:this.Name,cells:[...this._cells].sort((a,b)=>a[0]-b[0]).map(([n,v])=>[n,clone(v)]),meta:clone(this._meta)};}
+  ToJSON(){return{id:this.Id,name:this.Name,names:[...this.Names],nameMetadata:[...this._nameInfo.values()].map(clone),cells:[...this._cells].sort((a,b)=>a[0]-b[0]).map(([n,v])=>[n,clone(v)]),meta:clone(this._meta)};}
 }
 export class Cell {
   constructor(sheet,row,column){this.Worksheet=sheet;this.Row=row;this.Column=column;}

@@ -13,9 +13,16 @@ export class Range implements Loadable {
  getCell(row:number,column:number):Range; getRow(index:number):Range; getColumn(index:number):Range; getOffsetRange(rows:number,columns:number):Range; getResizedRange(deltaRows:number,deltaColumns:number):Range;
  clear(applyTo?:'All'|'Contents'|'Formats'):void; merge(across?:boolean):void; unmerge():void; copyFrom(source:Range,copyType?:'All'|'Values'|'Formulas'|'Formats',skipBlanks?:boolean,transpose?:boolean):void;
 }
-export class Worksheet implements Loadable { readonly context:RequestContext; name:string; readonly id:string; position:number; load(selection?:LoadSelection):this; toJSON():Record<string,unknown>; getRange(address:string):Range; getRangeByIndexes(row:number,column:number,rowCount:number,columnCount:number):Range; getUsedRange():Range; activate():void; delete():void; }
+export class Worksheet implements Loadable { readonly names:NamedItemCollection; readonly context:RequestContext; name:string; readonly id:string; position:number; load(selection?:LoadSelection):this; toJSON():Record<string,unknown>; getRange(address:string):Range; getRangeByIndexes(row:number,column:number,rowCount:number,columnCount:number):Range; getUsedRange():Range; activate():void; delete():void; }
 export interface WorksheetCollection { readonly context:RequestContext; readonly items:Worksheet[]; getItem(name:string):Worksheet; getItemAt(index:number):Worksheet; getActiveWorksheet():Worksheet; add(name?:string):Worksheet; load(selection?:string|string[]):this; }
-export class RequestContext { constructor(workbook:Workbook); readonly workbook:{worksheets:WorksheetCollection}; load<T extends Loadable & {context:RequestContext}>(object:T,properties:LoadSelection):T; sync<T=void>(passThroughValue?:T):Promise<T>; dispose():void; }
+export class RequestContext { constructor(workbook:Workbook); readonly workbook:{worksheets:WorksheetCollection;names:NamedItemCollection}; load<T extends Loadable & {context:RequestContext}>(object:T,properties:LoadSelection):T; sync<T=void>(passThroughValue?:T):Promise<T>; dispose():void; }
 export interface ExcelApi { run<T>(callback:(context:RequestContext)=>T|Promise<T>):Promise<T>; createRequestContext():RequestContext; readonly ClearApplyTo:{readonly all:'All';readonly contents:'Contents';readonly formats:'Formats'}; readonly RangeCopyType:{readonly all:'All';readonly values:'Values';readonly formulas:'Formulas'}; readonly HorizontalAlignment:{readonly left:'Left';readonly center:'Center';readonly right:'Right'}; readonly VerticalAlignment:{readonly top:'Top';readonly center:'Center';readonly bottom:'Bottom'}; }
 /** This factory does not install or claim the complete Office.js host API. */
 export function createExcelApi(workbook:Workbook):ExcelApi;
+
+export class NamedItem implements Loadable {
+ readonly context:RequestContext; readonly name:string; readonly scope:'Workbook'|'Worksheet'; formula:string; comment:string; visible:boolean;
+ readonly value:unknown; readonly type:'Range'|'String'|'Integer'|'Double'|'Boolean'|'Error'|'Array'; readonly worksheet:Worksheet;
+ load(selection?:LoadSelection):this; set(values:{formula?:string;comment?:string;visible?:boolean}):this; toJSON():Record<string,unknown>; getRange():Range; delete():void;
+}
+export class NamedItemCollection { readonly context:RequestContext; readonly items:NamedItem[]; getItem(name:string):NamedItem; add(name:string,reference:string|Range,comment?:string):NamedItem; load(selection?:string|string[]):this; }
