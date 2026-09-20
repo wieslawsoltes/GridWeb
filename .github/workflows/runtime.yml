@@ -90,7 +90,7 @@ jobs:
           if (-not (Test-Path $env:GRIDWEB_SMOKE_REPORT)) { throw "Native app exited $($process.ExitCode) without its report" }
           Get-Content $env:GRIDWEB_SMOKE_REPORT
           $report = Get-Content $env:GRIDWEB_SMOKE_REPORT | ConvertFrom-Json
-          if ($process.ExitCode -ne 0 -or $report.error -or $report.passed.Count -lt 13) { throw 'Native runtime qualification failed' }
+          if ($process.ExitCode -ne 0 -or $report.error -or $report.passed.Count -lt 22) { throw 'Native runtime qualification failed' }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
