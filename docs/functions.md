@@ -68,3 +68,7 @@ See [0.7 verification](verification-0.7.md) and the [feature audit](excel-featur
 The catalog is not exhaustive. Full argument/coercion/locale/name/precision/error compatibility, every optional argument, all scalar lifting, reference-valued LET/LAMBDA bindings, grouped 3-D structural changes, iterative calculation and future-function OOXML metadata remain incomplete or unqualified. Numeric matrices and other operations use explicit bounds; financial solvers return NUM on bounded non-convergence. Large operations remain synchronous unless a worker host is used.
 
 Target references: Microsoft [AGGREGATE](https://support.microsoft.com/en-us/excel/functions/aggregate-function), [DSUM](https://support.microsoft.com/en-us/excel/functions/dsum-function), [LAMBDA](https://support.microsoft.com/en-us/excel/functions/lambda-function), [MAKEARRAY](https://support.microsoft.com/en-us/excel/functions/makearray-function), [ISOMITTED](https://support.microsoft.com/en-us/excel/functions/isomitted-function) and [BYROW](https://support.microsoft.com/en-us/excel/functions/byrow-function).
+
+## Scoped-name and binding changes (0.8)
+
+Function availability remains 356. Qualified worksheet-local names/calls and direct reference-valued LET/LAMBDA arguments/returns are supported; reference probes are memoized. Named cycles report CIRC and ISOMITTED excludes explicit qualified-name expressions. This does not provide reference returns through every special form. See [defined names](defined-names.md).

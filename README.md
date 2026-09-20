@@ -139,3 +139,7 @@ Build produces modular browser files, a standalone studio, embedded host HTML an
 Successful main CI triggers versioned npm/GitHub publication with NPM_TOKEN, provenance and exact-byte verification. Pages deploys independently. Source archives contain tracked source rather than private untracked room files. [Publishing](docs/publishing.md) · [Automatic releases](docs/automatic-releases.md) · [Security](SECURITY.md).
 
 Full parity remains unfinished: exhaustive formulas and Office semantics, arbitrary lossless XLSX, complete native pivot/drawing/data-model behavior, VBA, Power Query/DAX, enterprise coauthoring and printer fidelity. No proprietary runtime/artwork/fonts are bundled. MIT licensed; [notices](NOTICE.md).
+
+## Scoped names and naming tools (0.8)
+
+Workbook and worksheet `Names` collections now coexist, with scope-aware rename, metadata, reference-valued LET/LAMBDA bindings and JSON/ordinary XLSX persistence. Home/Formulas → **Named formulas** creates a live example; **Name manager**, **Define name** and **Create from selection** belong to the reusable control. See [the naming contract](docs/defined-names.md), [updated feature audit](docs/excel-feature-audit.md) and [verification](docs/verification-0.8.md). Source ZIPs record, but do not embed, the independently pinned Blazor runtime in `SOURCE-GITLINKS.json`.

@@ -1,8 +1,9 @@
 import type {PasteOptions, FillSeriesOptions, SpecialCellType, SpecialCellOptions} from './editing.js';
-import { Workbook, Worksheet, Cell, CellRange, Bounds, GridViewModel, EventSource, ChartModel, WorkbookChange } from './index.js';
+import { Workbook, Worksheet, Cell, CellRange, Bounds, GridViewModel, EventSource, ChartModel, WorkbookChange, DefinedNameOptions, CellInput } from './index.js';
 export interface SelectionChange { address: string; worksheet: Worksheet; bounds: Bounds; row: number; column: number; cell: Cell; }
 export interface CellEdit { worksheet: Worksheet; row: number; column: number; value: unknown; input: unknown; }
 export class GridWebElement extends HTMLElement {
+  ShowCreateNamesFromSelection(): HTMLDialogElement; ShowNameManager(): HTMLDialogElement; ShowDefineName(): HTMLDialogElement; DefineName(name:string,value:CellInput,options?:DefinedNameOptions,sheet?:Worksheet|string|null):void;
   Workbook: Workbook; workbook: Workbook; Model: Workbook; Sheet: Worksheet | string;
   DataContext: GridViewModel | null; Theme: 'light' | 'dark'; Zoom: number; ReadOnly: boolean; ShowGridLines: boolean;
   ViewMode: 'normal' | 'pageLayout' | 'pageBreak'; Selection: string;

@@ -26,7 +26,7 @@ export async function inventories() {
   const names=new core.Workbook().Calculation.FunctionNames;
   return {
     'functions.json':{version,count:names.length,status:'Available names, not complete Excel behavioral/signature conformance',names},
-    'api-inventory.json':{version,scope:'Core exports and public prototype members; instance fields, method signatures and semantic equivalence require the declarations and feature audit',coreExports:Object.keys(core).sort(),publicPrototypeMembers:Object.fromEntries(['Workbook','WorksheetCollection','Worksheet','Cell','CellRange','RangeFormat','CalculationEngine','GridViewModel','PivotTable','PivotReport','PivotTableCollection'].filter(name=>typeof core[name]==='function').map(name=>[name,members(core[name])])),controlPrototypeMembers:members(GridWebElement),sourceModules:await modules()}
+    'api-inventory.json':{version,scope:'Core exports and public prototype members; instance fields, method signatures and semantic equivalence require the declarations and feature audit',coreExports:Object.keys(core).sort(),publicPrototypeMembers:Object.fromEntries(['DefinedNameCollection','Workbook','WorksheetCollection','Worksheet','Cell','CellRange','RangeFormat','CalculationEngine','GridViewModel','PivotTable','PivotReport','PivotTableCollection'].filter(name=>typeof core[name]==='function').map(name=>[name,members(core[name])])),controlPrototypeMembers:members(GridWebElement),sourceModules:await modules()}
   };
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

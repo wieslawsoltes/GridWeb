@@ -106,7 +106,7 @@ test('Cell-shaped sheet names and table selectors never shift as cell coordinate
  assert.equal(renameSheetReferences('=SUM(Jan:Mar!A1:B2)+"Jan!A1"+Table1[Jan]', 'Jan','New'),'=SUM(\'New:Mar\'!A1:B2)+"Jan!A1"+Table1[Jan]');
 });
 test('Reference resolution budgets terminate cyclic names and oversized unions',()=>{
- const {book,ev}=fixture();book.DefineName('Loop','=Loop');equal(ev('=SUM(Loop)'),'#NUM!');
+ const {book,ev}=fixture();book.DefineName('Loop','=Loop');equal(ev('=SUM(Loop)'),'#CIRC!');
  const formula='=SUM(('+Array(258).fill('A1').join(',')+'))';assert.ok(ev(formula) instanceof FormulaError);
  equal(ev('=HSTACK(Jan:Mar!A1:XFD1048576)'),'#NUM!');
 });

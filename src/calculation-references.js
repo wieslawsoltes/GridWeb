@@ -1,3 +1,4 @@
+import {resolveDefinedName} from './defined-names.js';
 /** Reference values retain coordinates until an explicit value consumer reads them. */
 import {error, isError, number} from './errors.js';
 import {MAX_OPERATION_CELLS, parseCell, MAX_COLUMNS, contains} from './address.js';
@@ -20,7 +21,7 @@ function resolvedSheet(engine, ref, ctx) {
 }
 export function advancedReference(engine, node, ctx, depth) {
   if(node.type==='table')return tableReference(engine,node,ctx);
-  if(node.type==='name'&&!ctx.vars?.has(node.name)&&!engine.Workbook._names.has(node.name)&&engine.Workbook._sheets.some(s=>s._meta.tables.some(t=>t.name.toUpperCase()===node.name)))return tableReference(engine,{type:'table',name:node.name,selector:'[#Data]'},ctx);
+  if(node.type==='name'&&node.sheet==null&&!ctx.vars?.has(node.name)&&!resolveDefinedName(engine.Workbook,node.name,ctx.sheet)&&engine.Workbook._sheets.some(s=>s._meta.tables.some(t=>t.name.toUpperCase()===node.name)))return tableReference(engine,{type:'table',name:node.name,selector:'[#Data]'},ctx);
   const resolve = n => engine._reference(n, ctx, depth + 1);
   if (node.type === 'ref' && node.sheetEnd != null) {
     const first = resolvedSheet(engine, node, ctx), last = resolvedSheet(engine, {sheet: node.sheetEnd}, ctx);

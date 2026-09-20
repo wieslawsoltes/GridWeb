@@ -1,4 +1,5 @@
 import { Workbook } from './model.js';
+import {referencePrefix} from './reference-syntax.js';
 import { isError } from './errors.js';
 /** Errors identify the implemented compatibility contract, not an Office host/runtime. */
 export class OfficeApiError extends Error {
@@ -102,6 +103,7 @@ export class Worksheet extends ClientObject {
     const stable = () => { resolved ??= getter(); if (!resolved || !context._book._sheets.includes(resolved)) fail('ItemNotFound', 'Worksheet was not found or was deleted'); return resolved; };
     super(context, stable, { name: { get:s=>s.Name, set:(s,v)=>s.Name=v }, id: { get:s=>s.Id }, position: { get:s=>context._book._sheets.indexOf(s), set:(s,v)=>context._book.Worksheets.Move(s,v) } });
   }
+  get names() { return new NamedItemCollection(this.context,()=>this._get()); }
   getRange(address) { return new Range(this.context, () => this._get().GetRange(address)); }
   getRangeByIndexes(row, column, rowCount, columnCount) { return new Range(this.context, () => this._get().GetRangeByIndexes(row, column, rowCount, columnCount)); }
   getUsedRange() { return new Range(this.context, () => this._get().UsedRange); }
@@ -124,8 +126,43 @@ class WorksheetCollection {
     }, true); return this;
   }
 }
+const namedFormula = value => typeof value==='string' ? value.startsWith('=')?value:'"'+value.replace(/"/g,'""')+'"' : value?.error?'='+value.error:value==null?'=""':'='+String(value).toUpperCase();
+/** Supported named-item subset; all writes and reads use the same request queue. */
+export class NamedItem extends ClientObject {
+  constructor(context,ownerGetter,name){
+    const get=()=>{const owner=ownerGetter();if(owner!==context._book&&!context._book._sheets.includes(owner))fail('ItemNotFound','Worksheet was deleted');const definition=owner.Names.GetDefinition(name);if(!definition)fail('ItemNotFound','Defined name was not found');return {owner,definition};};
+    const value=({owner,definition})=>{try{return owner.Names.GetRange(definition.name).FullAddress;}catch{const v=owner.Names.Evaluate(definition.name);return Array.isArray(v)?v.map(row=>row.map(output)):output(v);}};
+    const type=({owner,definition})=>{try{owner.Names.GetRange(definition.name);return 'Range';}catch{}const v=owner.Names.Evaluate(definition.name);return isError(v)?'Error':Array.isArray(v)?'Array':typeof v==='boolean'?'Boolean':typeof v==='number'?Number.isInteger(v)?'Integer':'Double':'String';};
+    super(context,get,{
+      name:{get:d=>d.definition.name},scope:{get:d=>d.owner===context._book?'Workbook':'Worksheet'},
+      formula:{get:d=>namedFormula(d.definition.value),set:(d,v)=>{if(typeof v!=='string'||!v.startsWith('='))fail('InvalidArgument','Named formulas start with =');d.owner.Names.Update(d.definition.name,v);}},
+      comment:{get:d=>d.definition.comment,set:(d,v)=>d.owner.Names.Update(d.definition.name,d.definition.value,{comment:v})},
+      visible:{get:d=>!d.definition.hidden,set:(d,v)=>{if(typeof v!=='boolean')fail('InvalidArgument','Visible must be boolean');d.owner.Names.Update(d.definition.name,d.definition.value,{hidden:!v});}},
+      value:{get:value},type:{get:type}
+    });
+  }
+  getRange(){return new Range(this.context,()=>{const d=this._get();try{return d.owner.Names.GetRange(d.definition.name);}catch(e){fail('InvalidOperation',e.message);}});}
+  get worksheet(){return new Worksheet(this.context,()=>{const d=this._get();if(d.owner===this.context._book)fail('InvalidOperation','Workbook name has no scoped worksheet');return d.owner;});}
+  delete(){this.context._enqueue(()=>{const d=this._get();d.owner.Names.Remove(d.definition.name);});}
+}
+export class NamedItemCollection {
+  constructor(context,ownerGetter){this.context=context;this._owner=ownerGetter;this._items=null;}
+  getItem(name){return new NamedItem(this.context,this._owner,name);}
+  add(name,reference,comment=''){
+    if(reference instanceof Range&&reference.context!==this.context)fail('InvalidObjectPath','Range belongs to another context');
+    if(!(reference instanceof Range)&&typeof reference!=='string')fail('NotSupported','Use a range proxy or invariant formula string');
+    this.context._enqueue(()=>{const owner=this._owner(),formula=reference instanceof Range?'='+referencePrefix(reference._get().Worksheet.Name)+reference._get().Address.replace(/([A-Z]+)(\d+)/g,'$$$1$$$2'):reference;if(typeof formula!=='string'||!formula.startsWith('='))fail('InvalidArgument','Named formulas start with =');owner.Names.Create(name,formula,{comment});});return this.getItem(name);
+  }
+  get items(){return this._items?[...this._items]:fail('PropertyNotLoaded','Load items and synchronize the context');}
+  load(selection='items'){
+    const fields=(Array.isArray(selection)?selection:String(selection).split(',')).map(s=>s.trim());
+    const allowed=['name','scope','formula','comment','visible','type','value'];
+    if(fields.some(f=>f!=='items'&&!allowed.some(a=>f==='items/'+a)))fail('NotSupported','Unsupported names collection load');
+    this.context._enqueue(()=>{const owner=this._owner(),items=owner.Names.Items.map(d=>{const item=new NamedItem(this.context,()=>owner,d.name);for(const f of fields.map(f=>f.split('/')[1]).filter(Boolean))item._loaded.set(f,clone(item._properties[f].get(item._get())));return item;});return ()=>{this._items=items;};},true);return this;
+  }
+}
 export class RequestContext {
-  constructor(book) { if (!(book instanceof Workbook)) throw new TypeError('Expected a GridWeb Workbook'); this._book = book; this._queue = []; this._disposed = false; this.workbook = { worksheets: new WorksheetCollection(this) }; }
+  constructor(book) { if (!(book instanceof Workbook)) throw new TypeError('Expected a GridWeb Workbook'); this._book = book; this._queue = []; this._disposed = false; this.workbook = { worksheets: new WorksheetCollection(this), names: new NamedItemCollection(this,()=>book) }; }
   _alive() { if (this._disposed) fail('InvalidObjectPath', 'Request context is disposed'); }
   _enqueue(action, read = false) { this._alive(); if (this._queue.length >= 10000) fail('InvalidArgument', 'Batch exceeds 10,000 operations'); this._queue.push({ action, read }); }
   load(object, properties) { if (object.context !== this) fail('InvalidObjectPath', 'Object belongs to another context'); return object.load(properties); }

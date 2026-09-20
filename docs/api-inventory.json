@@ -1,15 +1,17 @@
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "scope": "Core exports and public prototype members; instance fields, method signatures and semantic equivalence require the declarations and feature audit",
   "coreExports": [
     "AxisLayout",
     "CalculationEngine",
     "Cell",
     "CellRange",
+    "DefinedNameCollection",
     "EventSource",
     "FormulaError",
     "GridViewModel",
     "MAX_COLUMNS",
+    "MAX_DEFINED_NAMES",
     "MAX_OPERATION_CELLS",
     "MAX_ROWS",
     "ObservableCollection",
@@ -78,9 +80,66 @@
     "text",
     "toDelimited",
     "tokenize",
-    "truth"
+    "truth",
+    "validateDefinedName"
   ],
   "publicPrototypeMembers": {
+    "DefinedNameCollection": [
+      {
+        "name": "Add",
+        "kind": "method"
+      },
+      {
+        "name": "Count",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Create",
+        "kind": "method"
+      },
+      {
+        "name": "CreateFromSelection",
+        "kind": "method"
+      },
+      {
+        "name": "Evaluate",
+        "kind": "method"
+      },
+      {
+        "name": "Get",
+        "kind": "method"
+      },
+      {
+        "name": "GetDefinition",
+        "kind": "method"
+      },
+      {
+        "name": "GetRange",
+        "kind": "method"
+      },
+      {
+        "name": "Has",
+        "kind": "method"
+      },
+      {
+        "name": "Items",
+        "kind": "property",
+        "get": true
+      },
+      {
+        "name": "Remove",
+        "kind": "method"
+      },
+      {
+        "name": "Rename",
+        "kind": "method"
+      },
+      {
+        "name": "Update",
+        "kind": "method"
+      }
+    ],
     "Workbook": [
       {
         "name": "Calculate",
@@ -110,6 +169,10 @@
       },
       {
         "name": "Find",
+        "kind": "method"
+      },
+      {
+        "name": "GetDefinedNames",
         "kind": "method"
       },
       {
@@ -820,6 +883,10 @@
       "set": true
     },
     {
+      "name": "DefineName",
+      "kind": "method"
+    },
+    {
       "name": "Dispose",
       "kind": "method"
     },
@@ -906,6 +973,14 @@
       "set": true
     },
     {
+      "name": "ShowCreateNamesFromSelection",
+      "kind": "method"
+    },
+    {
+      "name": "ShowDefineName",
+      "kind": "method"
+    },
+    {
       "name": "ShowFillSeries",
       "kind": "method"
     },
@@ -921,6 +996,10 @@
     },
     {
       "name": "ShowMoveWorksheet",
+      "kind": "method"
+    },
+    {
+      "name": "ShowNameManager",
       "kind": "method"
     },
     {
@@ -975,6 +1054,7 @@
     "src/browser.js",
     "src/calculation-aggregate.js",
     "src/calculation-base.js",
+    "src/calculation-bindings.js",
     "src/calculation-lambda.js",
     "src/calculation-references.js",
     "src/calculation.js",
@@ -988,9 +1068,11 @@
     "src/collaboration/validation-worker.js",
     "src/collaboration/validation.js",
     "src/control-editing.js",
+    "src/control-names.js",
     "src/controls.js",
     "src/core.js",
     "src/data.js",
+    "src/defined-names.js",
     "src/editing.js",
     "src/errors.js",
     "src/events.js",
@@ -1012,6 +1094,7 @@
     "src/layout.js",
     "src/model-base.js",
     "src/model.js",
+    "src/names-ooxml.js",
     "src/office.js",
     "src/pagination.js",
     "src/parser.js",

@@ -3,7 +3,7 @@ const atom = "(?:'(?:[^']|'')+'|[A-Za-z_][\\w.]*)";
 const cell = '\\$?[A-Za-z]{1,3}\\$?[1-9]\\d*';
 const axis = '(?:\\$?[A-Za-z]{1,3}:\\$?[A-Za-z]{1,3}|\\$?[1-9]\\d*:\\$?[1-9]\\d*)';
 const prefix = `(?:${atom}(?::${atom})?!)?`;
-const pattern = new RegExp(`^(${prefix})(${cell}(?::${cell}(?![\\w.(\\[]))?|${axis})(?![\\w.(\\[])`);
+const pattern = new RegExp(`^(${prefix})(${cell}(?::${cell}(?![\\w.!(\\[]))?|${axis})(?![\\w.!(\\[])`);
 const unquote = name => name.startsWith("'") ? name.slice(1, -1).replace(/''/g, "'") : name;
 export function readReference(source) {
   const match = pattern.exec(source);
@@ -46,4 +46,10 @@ export function mapFormulaReferences(formula, transform) {
     } else out += source[i++];
   }
   return out;
+}
+
+/** A qualified defined name is not an A1 cell, a table selector, or a 3-D span. */
+export function readQualifiedName(source) {
+  const m = /^(('(?:[^']|'')+'|[A-Za-z_][\w.]*)!)([A-Za-z_\\][\w.\\]*)(?![\w.\\])/.exec(source);
+  return m ? {raw:m[0],sheet:unquote(m[2]),name:m[3]} : null;
 }

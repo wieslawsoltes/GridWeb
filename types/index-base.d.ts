@@ -60,10 +60,25 @@ export function bind(source: ObservableObject, path: string, target: object, pro
 export interface FontStyle { name?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean; color?: string; strikethrough?: boolean; }
 export interface CellStyle { font?: FontStyle; fill?: string; numberFormat?: string; horizontalAlignment?: 'left' | 'center' | 'right'; verticalAlignment?: 'top' | 'center' | 'bottom'; wrapText?: boolean; border?: { color?: string }; locked?: boolean; rotation?: number; }
 export interface CellRecord { input: CellInput; literal?: boolean; style?: CellStyle; comment?: string; }
-export interface WorksheetDocument { id: string; name: string; cells: [number, CellRecord][]; meta: Record<string, unknown>; }
-export interface WorkbookDocument { format: 'GridWeb'; version: 1; name: string; locale: string; activeSheet: string; names: [string, CellInput][]; sheets: WorksheetDocument[]; }
+export interface WorksheetDocument { id: string; name: string; cells: [number, CellRecord][]; meta: Record<string, unknown>; names?: [string, CellInput][]; nameMetadata?: DefinedNameMetadata[]; }
+export interface WorkbookDocument { format: 'GridWeb'; version: 1; name: string; locale: string; activeSheet: string; names: [string, CellInput][]; sheets: WorksheetDocument[]; nameMetadata?: DefinedNameMetadata[]; }
 export interface WorkbookChange { Workbook: Workbook; Revision: number; Label: string; Changes: { type: string; sheet?: Worksheet; row?: number; column?: number; [key: string]: unknown }[]; }
-export interface DefinedNames extends Iterable<[string, CellInput]> { Add(name: string, value: CellInput): void; Get(name: string): CellInput | undefined; Remove(name: string): boolean; }
+export interface DefinedNameOptions { comment?:string; hidden?:boolean; contextSheetId?:string|null; baseAddress?:string|null; }
+export interface DefinedNameMetadata { name:string; comment:string; hidden:boolean; contextSheetId:string|null; baseAddress:string|null; }
+export interface DefinedNameDefinition extends DefinedNameMetadata { value:CellInput; sheetId:string|null; scope:string; }
+export interface CreateNamesOptions { topRow?:boolean; bottomRow?:boolean; leftColumn?:boolean; rightColumn?:boolean; overwrite?:boolean; }
+export interface NameEvaluationContext { sheet?:Worksheet; row?:number; col?:number; }
+export class DefinedNameCollection implements Iterable<[string,CellInput]> {
+  constructor(owner:Workbook|Worksheet); readonly owner:Workbook|Worksheet; readonly Count:number; readonly Items:DefinedNameDefinition[];
+  Has(name:string):boolean; Add(name:string,value:CellInput,options?:DefinedNameOptions):void; Create(name:string,value:CellInput,options?:DefinedNameOptions):void;
+  Get(name:string):CellInput|undefined; GetDefinition(name:string):DefinedNameDefinition|undefined; Update(name:string,value:CellInput,options?:DefinedNameOptions):void;
+  CreateFromSelection(source:CellRange,options?:CreateNamesOptions):DefinedNameDefinition[];
+  Rename(name:string,newName:string):void; Remove(name:string):boolean; Evaluate(name:string,context?:NameEvaluationContext):unknown; GetRange(name:string,context?:NameEvaluationContext):CellRange;
+  [Symbol.iterator]():Iterator<[string,CellInput]>;
+}
+export type DefinedNames=DefinedNameCollection;
+export const MAX_DEFINED_NAMES:10000;
+export function validateDefinedName(name:string):string;
 export class Workbook extends ObservableObject {
   constructor(options?: { name?: string; locale?: string; createSheet?: boolean });
   Name: string; Locale: string; readonly Revision: number; ActiveWorksheet: Worksheet;
@@ -74,7 +89,7 @@ export class Workbook extends ObservableObject {
   Changed: EventSource<WorkbookChange>; Calculated: EventSource<{ Workbook: Workbook; Revision: number }>;
   Transaction<T>(action: () => T): T; Transaction<T>(label: string, action: () => T): T;
   Calculate(full?: boolean): void; Undo(): boolean; Redo(): boolean; ClearHistory(): void;
-  DefineName(name: string, value: CellInput): void; RemoveName(name: string): boolean;
+  DefineName(name: string, value: CellInput, options?: DefinedNameOptions): void; GetDefinedNames(): DefinedNameDefinition[]; RemoveName(name: string): boolean;
   GetRange(address: string): CellRange;
   Find(query: string, options?: FindOptions): FindResult[];
   Replace(query: string, replacement: string, options?: FindOptions): number;
@@ -97,6 +112,7 @@ export interface TableModel { name: string; range: Bounds; style?: string; total
 export interface ConditionalFormat { type: 'cellValue' | 'colorScale' | 'dataBar' | 'formula' | 'duplicate'; operator?: string; value?: Primitive; criteria?: Primitive; formula?: string; minColor?: string; maxColor?: string; color?: string; style?: CellStyle; }
 export interface ValidationRule { type: 'list' | 'number' | 'whole' | 'date' | 'textLength' | 'custom'; values?: Primitive[]; min?: number; max?: number; formula?: string; allowBlank?: boolean; message?: string; }
 export class Worksheet {
+  readonly Names: DefinedNameCollection;
   constructor(workbook: Workbook, name: string); readonly Workbook: Workbook; readonly Id: string; Name: string; name: string;
   readonly CellCount: number; readonly UsedRange: CellRange; readonly IsProtected: boolean;
   readonly Charts: ChartModel[]; readonly Tables: TableModel[]; readonly MergedRanges: Bounds[];
