@@ -28,3 +28,11 @@ The actual PR/merge checks and comments record remote results. Main CI, GitHub P
 ## Remaining limits
 
 No independent desktop Excel oracle, native Excel open/save/reopen, physical-printer/GPU/device matrix or production-scale coauthoring qualification was performed. JSON/XLSX self-round-trips qualify only their explicit assertions. Full Unicode/external/workbook-qualified naming, native relative-name export, null/tombstoned-context export, all reference-preserving special forms, full Name Manager/Office.js APIs and arbitrary lossless OOXML remain incomplete. Full Excel parity is unfinished; see [feature audit](excel-feature-audit.md) and [defined names](defined-names.md).
+
+## Continuation: fixture-specific OOXML qualification
+
+The first PR #11 CI run (`35500622963`, head `56e69ffc8265c88fca7ceec83a9eac6f83f9072c`) passed JavaScript, full browser, native and framework jobs, but its schema job failed. The generator had added `scoped-names.xlsx` while the C# runner still required a native pivot in every workbook and exactly four files. The names-only fixture intentionally contains no pivots.
+
+The runner now requires the exact set of four pivot fixtures plus the names fixture. Every workbook still runs through `OpenXmlValidator(Office2013)`. Every pivot fixture must retain its own named pivot and complete cache relationships. The names fixture separately requires six definitions with exact workbook/local scopes, formulas, comments and hidden flags. Reports retain schema and semantic contract failures rather than stopping at the inappropriate pivot assertion.
+
+Fourteen negative SDK checks reject missing/unexpected fixtures, removal of each of the four pivots, missing cache records, and lost/changed name scope, formula, comment, hidden state or definition. They validate the unmodified baseline before mutating in-memory copies. No schema checks are skipped or reduced. Updated C# compilation and SDK execution are pending the continuation commit's CI; the fresh local `npm run check` again passed all 1,347 Node tests, types, build and installed consumers.
