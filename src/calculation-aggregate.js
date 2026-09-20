@@ -1,3 +1,4 @@
+import {areasOf} from './calculation-references.js';
 /** Reference-sensitive aggregations; filtering must happen before values lose their origins. */
 import {error, isError, number, matrix} from './errors.js';
 import {contains, parseCell, MAX_COLUMNS, MAX_OPERATION_CELLS} from './address.js';
@@ -38,14 +39,16 @@ export function referenceAggregate(engine, name, args, ctx, ev) {
     values.push(value);
   };
   for (const arg of args.slice(subtotal ? 1 : 2, arrayForm ? 3 : undefined)) {
-    const ref = engine._reference(arg, ctx);
-    if (!ref) {
+    const reference = engine._reference(arg, ctx);
+    if (!reference) {
       if (subtotal) throw error('#VALUE!', 'SUBTOTAL requires references');
       const value = ev(arg);
       // A computed array no longer has row visibility or nested-formula metadata.
       for (const row of matrix(value)) for (const item of row) append(item);
       continue;
     }
+    if(reference.threeD)throw error('#VALUE!',name+' does not accept 3-D references');
+    for(const ref of areasOf(reference)){
     const sheet = engine._sheet(ref.sheet, ctx.sheet);
     if (!sheet) throw error('#REF!', 'Unknown worksheet');
     engine._rangeDependency(ctx, sheet, ref);
@@ -62,6 +65,7 @@ export function referenceAggregate(engine, name, args, ctx, ev) {
       if (ignoreNested && nestedFormula(engine, sheet._cells.get(n))) continue;
       append(engine.GetValue(sheet, row, col, ctx));
     }
+  }
   }
   const fn = engine.Functions.get(functions[index]);
   return arrayForm ? fn(values, ev(args[3])) : fn(values);

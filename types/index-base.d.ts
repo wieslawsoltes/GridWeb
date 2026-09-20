@@ -86,8 +86,8 @@ export interface FindResult { sheet: Worksheet; row: number; column: number; add
 export class WorksheetCollection implements Iterable<Worksheet> {
   constructor(workbook: Workbook); readonly Count: number;
   Get(indexOrName: number | string): Worksheet | undefined;
-  Add(name?: string): Worksheet; Remove(sheetOrName: Worksheet | string): void;
-  getItem(indexOrName: string | number): Worksheet; getItemAt(index: number): Worksheet; readonly items: Worksheet[]; CollectionChanged: EventSource<WorkbookChange>; add(name?: string): Worksheet;
+  Add(name?: string, index?: number): Worksheet; Move(sheetOrName: Worksheet | string, index: number): Worksheet; Remove(sheetOrName: Worksheet | string): void;
+  getItem(indexOrName: string | number): Worksheet; getItemAt(index: number): Worksheet; readonly items: Worksheet[]; CollectionChanged: EventSource<WorkbookChange>; add(name?: string, index?: number): Worksheet;
   [Symbol.iterator](): Iterator<Worksheet>;
 }
 export type ChartType = 'column' | 'bar' | 'line' | 'area' | 'pie' | 'scatter';

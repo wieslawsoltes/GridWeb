@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+Implement bounded 3-D reference values, unions/intersections, dynamic colon ranges and reference-form INDEX. Add AREAS, ISREF, SHEET, SHEETS, AVERAGEA, MAXA, MINA, VARA, VARPA, STDEVA and STDEVPA (356 available names). Extend reference-aware aggregation, 3-D HSTACK/VSTACK, adjacent structured table columns and A1/R1C1 conversion. Preserve reference provenance and invalidate initially empty dependencies. Share formula scanning across copy, rename and structural rewrites.
+
+Add indexed worksheet insertion and atomic worksheet reordering; repair deleted/crossed 3-D endpoints and ordinary deleted references in formulas, names, validation and conditional-format expressions. Protect unsupported single-sheet structural changes to a multi-sheet span with preflight rejection. Add a reusable Move worksheet dialog, Office-style position setter, host/worker commands and typed C# methods. Add live Reference tools to Home/Formulas without changing the default five-sheet workbook. Fix asynchronous dialog-close focus interference.
+
+Add 144 Node regressions, 14 Chromium groups, strict declarations and installed-package consumers. Extend actual Windows native runtime smoke to 22 assertions per framework. Harden Avalonia initialization by awaiting AdapterCreated before navigation, checking completion for the trusted host URI and cancelling initialization on disposal. This addresses a suspected readiness race exposed by a previous main-CI navigation timeout; exact native outcomes are recorded separately from local Node/browser results. Full Excel, Office.js, OOXML and native-device parity remains unfinished. See the updated feature audit and reference contract.
+
 ## 0.6.0
 
 Add the source-level Excel feature audit and generated, drift-tested function/API inventories (345 available names, not a parity claim). Implement 12 database functions, all AGGREGATE selectors/options with reference metadata, improved SUBTOTAL, MAKEARRAY, ISOMITTED, direct/recursive LAMBDA invocation and stricter helper-array/arity handling. Bound database criteria cross-product work.

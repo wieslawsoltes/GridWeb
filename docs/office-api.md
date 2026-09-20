@@ -30,6 +30,20 @@ In matrix assignments, `null` skips an individual cell; empty text clears cell c
 
 The studio exposes a real example under View → Office API example. It creates a new worksheet through this API, calculates totals, reads them via load/sync, and is undoable as one transaction.
 
+## Worksheet position
+
+`worksheet.position` is a writable, zero-based final index. Setting it queues a shared-engine worksheet move; no mutation occurs until synchronization. A load after that move observes the new position. Formula repair and ordering participate in the batch transaction and undo; an invalid index rolls back the entire failing sync.
+
+```js
+await Excel.run(async context => {
+  const sheet = context.workbook.worksheets.getItem('Sheet1');
+  sheet.position = 0;
+  sheet.load('position');
+  await context.sync();
+  console.log(sheet.position);
+});
+```
+
 ## Boundaries
 
 This is not the full Office.js object model. Tables, charts, names, bindings, add-in permissions, events, host requirement sets, trackedObjects and COM/VBA APIs are not exposed through this adapter. Core equivalents may exist separately. Proxy tracking across structural edits is not Office-equivalent; use fresh ranges after those operations. Copy flags use the bounded [PasteSpecial profile](editing.md); transposed custom validation, merged/spill content copying and other documented combinations still reject explicitly. The adapter is single-process; it is not a coauthoring service.

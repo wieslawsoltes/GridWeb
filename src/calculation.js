@@ -1,3 +1,4 @@
+import {advancedReference, areasOf, singleReference, readReferenceValues, referenceFunction, REFERENCE_FUNCTIONS, THREE_D_FUNCTIONS} from './calculation-references.js';
 import {CalculationEngine as BaseCalculationEngine} from './calculation-base.js';
 import {parseFormula} from './parser.js';
 import {error,isError,number,text,truth,scalar,matrix} from './errors.js';
@@ -9,7 +10,7 @@ import {OMITTED,LAMBDA_HELPERS,evaluateLambdaHelper} from './calculation-lambda.
 import {shiftFormula} from './address.js';
 import {r1c1ToA1} from './references.js';
 export {isFormula,literalValue} from './calculation-base.js';
-const aggregate=new Set('SUM AVERAGE MIN MAX COUNT COUNTA PRODUCT SUMSQ MEDIAN STDEV STDEVP STDEV.S STDEV.P VAR VARP VAR.S VAR.P AVEDEV DEVSQ GEOMEAN HARMEAN MODE MODE.SNGL MODE.MULT SKEW SKEW.P KURT'.split(' '));
+const aggregate=new Set('AVERAGEA MAXA MINA VARA VARPA STDEVA STDEVPA SUM AVERAGE MIN MAX COUNT COUNTA PRODUCT SUMSQ MEDIAN STDEV STDEVP STDEV.S STDEV.P VAR VARP VAR.S VAR.P AVEDEV DEVSQ GEOMEAN HARMEAN MODE MODE.SNGL MODE.MULT SKEW SKEW.P KURT'.split(' '));
 const numericAggregate=new Set('AVEDEV DEVSQ GEOMEAN HARMEAN MODE MODE.SNGL MODE.MULT SKEW SKEW.P KURT'.split(' '));
 const scalarFunctions=new Set('ABS ACOS ACOSH ASIN ASINH ATAN ATAN2 ATANH COS COSH SIN SINH TAN TANH DEGREES RADIANS EXP LN LOG LOG10 SQRT SIGN INT TRUNC ROUND ROUNDUP ROUNDDOWN MROUND CEILING.MATH FLOOR.MATH MOD QUOTIENT POWER EVEN ODD FACT LEN LEFT RIGHT MID LOWER UPPER PROPER TRIM CLEAN CHAR CODE UNICHAR UNICODE REPLACE SUBSTITUTE FIND SEARCH EXACT VALUE NUMBERVALUE YEAR MONTH DAY HOUR MINUTE SECOND DATE TIME DAYS EDATE EOMONTH ISOWEEKNUM WEEKNUM STANDARDIZE GAMMA GAMMALN GAMMALN.PRECISE NORM.DIST NORM.S.DIST NORM.INV NORM.S.INV GAMMA.DIST GAMMA.INV BETA.DIST BETA.INV T.DIST T.DIST.RT T.DIST.2T T.INV T.INV.2T F.DIST F.DIST.RT F.INV F.INV.RT CHISQ.DIST CHISQ.DIST.RT CHISQ.INV CHISQ.INV.RT BINOM.DIST BINOM.INV POISSON.DIST EXPON.DIST WEIBULL.DIST ERF ERFC ERF.PRECISE ERFC.PRECISE BITAND BITOR BITXOR BITLSHIFT BITRSHIFT BASE DECIMAL DELTA GESTEP'.split(' '));
 function lifted(args,fn){
@@ -19,7 +20,7 @@ function lifted(args,fn){
   return Array.from({length:h},(_,r)=>Array.from({length:w},(_,c)=>{try{return fn(...arrays.map(a=>a[a.length===1?0:r][a[0].length===1?0:c]));}catch(e){return isError(e)?e:error('#VALUE!',e.message);}}));
 }
 export class CalculationEngine extends BaseCalculationEngine {
-  get FunctionNames(){return [...new Set([...super.FunctionNames,'AGGREGATE','MAKEARRAY','ISOMITTED'])].sort();}
+  get FunctionNames(){return [...new Set([...super.FunctionNames,...REFERENCE_FUNCTIONS,'AGGREGATE','MAKEARRAY','ISOMITTED'])].sort();}
   Evaluate(formula,context){
     const root=!this._lambdaBudget;if(root)this._lambdaBudget={calls:0,depth:0};
     try{return super.Evaluate(formula,context);}finally{if(root)this._lambdaBudget=null;}
@@ -35,38 +36,66 @@ export class CalculationEngine extends BaseCalculationEngine {
   }
   /** Resolve reference-valued expressions without collapsing their origin/type. */
   _reference(node,ctx,depth=0){
-    if(!node||depth>64)return null;
+    if(!node)return null;if(depth>64)throw error('#NUM!','Reference resolution limit');
+    const advanced=advancedReference(this,node,ctx,depth);if(advanced!==undefined)return advanced;
     if(node.type==='ref')return node;
     if(node.type==='name'&&!ctx.vars?.has(node.name)){
       const value=this.Workbook._names.get(node.name);
       if(typeof value==='string'&&value.startsWith('='))return this._reference(parseFormula(value),ctx,depth+1);
     }
     if(node.type==='call'&&node.name==='INDIRECT'){
+      if(node.args.length<1||node.args.length>2)throw error('#VALUE!','INDIRECT argument count');
       const a=node.args,source=text(this._eval(a[0],ctx)),useA1=a[1]==null||a[1].value===null||truth(this._eval(a[1],ctx));
-      try{return {...parseRange(useA1?source:r1c1ToA1(source,{row:ctx.row,column:ctx.col})),type:'ref'};}catch{throw error('#REF!');}
+      try{const ref={...parseRange(useA1?source:r1c1ToA1(source,{row:ctx.row,column:ctx.col})),type:'ref'};if(ref.sheet?.includes(':'))throw error('#REF!');return ref;}catch{throw error('#REF!');}
     }
     if(node.type==='call'&&node.name==='OFFSET'){
-      const a=node.args,base=this._reference(a[0],ctx,depth+1);if(!base)throw error('#VALUE!');const ev=i=>Math.trunc(number(this._eval(a[i],ctx)));
+      if(node.args.length<3||node.args.length>5)throw error('#VALUE!','OFFSET argument count');
+      const a=node.args,base=this._reference(a[0],ctx,depth+1);singleReference(base);const ev=i=>Math.trunc(number(this._eval(a[i],ctx)));
       const r=ev(1),c=ev(2),h=a[3]==null||a[3].value===null?base.r2-base.r1+1:ev(3),w=a[4]==null||a[4].value===null?base.c2-base.c1+1:ev(4);
       const ref={...base,r1:base.r1+r,c1:base.c1+c,r2:base.r1+r+h-1,c2:base.c1+c+w-1};
       if(h<1||w<1||ref.r1<0||ref.c1<0||ref.r2>=MAX_ROWS||ref.c2>=MAX_COLUMNS)throw error('#REF!');return ref;
     }
     return null;
   }
+  _read(node,ctx,sparse=false){
+    if(node?.type==='multiRef')return sparse?readReferenceValues(this,node,ctx):error('#VALUE!','A multi-area or 3-D reference needs a reference-aware consumer');
+    return super._read(node,ctx,sparse);
+  }
   _evaluate(node,ctx){
     if(!node||ctx.depth>128)return error('#NUM!','Evaluation nesting limit');
     const next={...ctx,depth:ctx.depth+1},ev=n=>this._eval(n,next);
     if(node.type==='unary'&&node.op==='@'){
       const ref=this._reference(node.value,next);
-      if(ref){const s=this._sheet(ref.sheet,ctx.sheet);if(!s)return error('#REF!');
+      if(ref){singleReference(ref);const s=this._sheet(ref.sheet,ctx.sheet);if(!s)return error('#REF!');
         const r=ref.r1===ref.r2?ref.r1:ctx.row,c=ref.c1===ref.c2?ref.c1:ctx.col;
         if(r<ref.r1||r>ref.r2||c<ref.c1||c>ref.c2||ref.r1!==ref.r2&&ref.c1!==ref.c2)return error('#VALUE!','No unique implicit intersection');
         return this.GetValue(s,r,c,next);
       }return scalar(ev(node.value));
     }
+    if(node.type==='unary'&&node.op==='#')return this._read(this._reference(node,next),next);
+    if(node.type==='ref'&&node.sheetEnd!=null||node.type==='refop'||node.type==='table')return this._read(this._reference(node,next),next);
     if(node.type==='invoke')return this._invoke(ev(node.callee),node.args.map(a=>a.omitted?OMITTED:ev(a)));
     if(node.type!=='call')return super._evaluate(node,ctx);
     const {name,args}=node;
+    if(REFERENCE_FUNCTIONS.includes(name))return referenceFunction(this,name,args,next);
+    if(name==='INDEX'){const ref=this._reference(node,next);if(ref)return this._read(ref,next);}
+    if(['ROWS','COLUMNS','COUNTBLANK','FORMULATEXT','ISFORMULA'].includes(name)&&args.length===1){const ref=this._reference(args[0],next);if(ref){singleReference(ref);return super._evaluate({...node,args:[ref]},ctx);}}
+    if(name==='HSTACK'||name==='VSTACK') {
+      let cells=0;const values=[];
+      for(const arg of args){
+        const ref=this._reference(arg,next);
+        for(const part of ref?.threeD?ref.areas:[null]){
+          // Reject oversized rectangles before reading them; otherwise a range
+          // limit error would be mistaken for a one-cell stack input.
+          if(part&&(part.r2-part.r1+1)*(part.c2-part.c1+1)>MAX_OPERATION_CELLS-cells)return error('#NUM!','Stack cell limit');
+          const value=part?this._read(part,next):ev(arg),a=matrix(value);
+          cells+=a.length*(a[0]?.length??0);
+          if(cells>MAX_OPERATION_CELLS)return error('#NUM!','Stack cell limit');
+          values.push(value);
+        }
+      }
+      return this.Functions.get(name)(...values);
+    }
     if(name==='LET'){
       if(args.length<3||args.length%2===0||args.length>253)return error('#VALUE!','LET argument count');
       const vars=new Map(ctx.vars),omitted=new Set(ctx.omitted??[]);
@@ -107,7 +136,7 @@ export class CalculationEngine extends BaseCalculationEngine {
     }
     if(name==='ROW'||name==='COLUMN'){
       if(args.length>1)return error('#VALUE!');if(!args.length)return(name==='ROW'?ctx.row:ctx.col)+1;
-      const ref=this._reference(args[0],next);if(!ref)return error('#VALUE!');if(!this._sheet(ref.sheet,ctx.sheet))return error('#REF!');
+      const ref=this._reference(args[0],next);singleReference(ref);if(!this._sheet(ref.sheet,ctx.sheet))return error('#REF!');
       const row=name==='ROW',start=row?ref.r1:ref.c1,count=(row?ref.r2:ref.c2)-start+1;
       if(count>MAX_OPERATION_CELLS)return error('#NUM!');
       return count===1?start+1:row?Array.from({length:count},(_,i)=>[start+i+1]):[Array.from({length:count},(_,i)=>start+i+1)];
@@ -120,7 +149,7 @@ export class CalculationEngine extends BaseCalculationEngine {
     const fn=this.Functions.get(name);
     if(fn&&aggregate.has(name)){
       if(!args.length||args.length>255)return error('#VALUE!','Aggregate argument count');
-      return fn(...args.map(arg=>{const ref=this._reference(arg,next);if(ref){const value=this._read(ref,next,true);return Array.isArray(value)?value:[[value]];}const v=ev(arg);if(arg.type==='table')return matrix(v);if(name==='COUNT'&&!Array.isArray(v)&&!isError(v)&&v!==null&&v!==''){try{return number(v);}catch{return v;}}return numericAggregate.has(name)&&!Array.isArray(v)?number(v):v;}));
+      return fn(...args.map(arg=>{const ref=this._reference(arg,next);if(ref){if(ref.threeD&&!THREE_D_FUNCTIONS.has(name))return error('#VALUE!','This function does not accept 3-D references');const value=this._read(ref,next,true);return Array.isArray(value)?value:[[value]];}const v=ev(arg);if(arg.type==='table')return matrix(v);if(name==='COUNT'&&!Array.isArray(v)&&!isError(v)&&v!==null&&v!==''){try{return number(v);}catch{return v;}}return numericAggregate.has(name)&&!Array.isArray(v)?number(v):v;}));
     }
     if(fn&&scalarFunctions.has(name))return lifted(args.map(ev),fn);
     if(!fn&&(ctx.vars.has(name)||this.Workbook._names.has(name))){

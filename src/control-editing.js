@@ -8,11 +8,12 @@ function dialog(grid, title, applyText, apply) {
   heading.id = 'grid-editing-' + ++sequence; modal.setAttribute('aria-labelledby', heading.id);
   error.setAttribute('role', 'alert'); const style = element('style', css); form.append(heading);
   const footer = element('footer'), cancel = element('button', 'Cancel'), submit = element('button', applyText);
-  const close = () => { modal.close(); if (grid.isConnected) grid.Focus(); };
+  const restoreFocus = () => { if (grid.isConnected && ![...(grid._editingDialogs ?? [])].some(d => d.open)) grid.Focus(); };
+  const close = () => { modal.close(); restoreFocus(); };
   cancel.type = 'button'; cancel.onclick = close; submit.type = 'submit'; submit.className = 'primary';
   footer.append(cancel, submit); modal.append(style, form);
   (grid._editingDialogs ??= new Set()).add(modal);
-  modal.addEventListener('close', () => { grid._editingDialogs.delete(modal); modal.remove(); if (grid.isConnected) grid.Focus(); }, {once: true});
+  modal.addEventListener('close', () => { grid._editingDialogs.delete(modal); modal.remove(); restoreFocus(); }, {once: true});
   form.onsubmit = event => {
     event.preventDefault(); error.textContent = '';
     try { if (apply() !== false) close(); } catch (failure) { error.textContent = failure.message ?? String(failure); }
@@ -74,4 +75,17 @@ export function showGoToSpecial(grid) {
   type.onchange = () => { valueType.disabled = !['formulas','constants'].includes(type.value); if (valueType.disabled) valueType.value = ''; };
   const status = element('p'), results = element('div'); status.setAttribute('role', 'status'); results.className = 'results'; ui.form.append(status, results);
   ui.open(); return ui.modal;
+}
+export function showMoveWorksheet(grid) {
+  const workbook=grid.Workbook, sheets=workbook.Worksheets.items, order=sheets.map(s=>s.Id).join(',');
+  const ui=dialog(grid,'Move worksheet','Move',()=>{
+    if(grid.Workbook!==workbook||workbook.Worksheets.items.map(s=>s.Id).join(',')!==order)throw new Error('Worksheet order changed. Reopen this dialog before moving.');
+    grid.MoveWorksheet(Number(position.value),sheet.value);
+  });
+  ui.form.append(element('p','Choose the final position. Formulas using a 3-D sheet range recalculate when the sheet order changes.'));
+  const sheet=select(ui.form,'Worksheet',sheets.map(s=>[s.Id,s.Name]),grid.Sheet.Id);
+  const position=select(ui.form,'Final position',sheets.map((s,i)=>[String(i),`${i+1} — ${s.Name}`]),String(sheets.indexOf(grid.Sheet)));
+  sheet.onchange=()=>{position.value=String(sheets.findIndex(s=>s.Id===sheet.value));};
+  ui.form.append(element('small','Moving a range endpoint past its opposite endpoint shrinks that reference. Undo restores both formulas and worksheet order.'));
+  ui.open();return ui.modal;
 }

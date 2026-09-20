@@ -53,7 +53,7 @@ The .NET 8/.NET 10 package wraps the same native grid/calculation engine in WebA
 
 ## Engine and editor
 
-Sparse workbooks/ranges, 345 available formula names, dependencies, arrays and LET/LAMBDA, binary lookups, distributions, matrices, complex/dated finance, A1/R1C1 translation, transactional editing/history, formatting, validation, conditional rules, tables, sorting/filtering, goal seek and regression. The Canvas editor supports native text editing, keyboard/pointer selections, clipboard/fill, resizing, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses the same engine, not separate mock data.
+Sparse workbooks/ranges, 356 available formula names, dependencies, arrays and LET/LAMBDA, binary lookups, distributions, matrices, complex/dated finance, A1/R1C1 translation, transactional editing/history, formatting, validation, conditional rules, tables, sorting/filtering, goal seek and regression. The Canvas editor supports native text editing, keyboard/pointer selections, clipboard/fill, resizing, merges, frozen panes, chart manipulation, zoom, themes and multiple views. The five-sheet studio uses the same engine, not separate mock data.
 
 [Calculation contracts](docs/functions.md) · [Core API](docs/api.md) · [React example](examples/react.jsx)
 
@@ -98,11 +98,29 @@ PascalCase APIs, PropertyChanged, collection notifications, RelayCommand and dis
 
 `integrations/` contains Dockyard, RibbonWeb, TreeDataGridWeb, DynamicDataWeb, ReactiveWeb, RBushWeb and QuikGraphWeb adapters. CI runs actual package tests with React 18/19. The dependency-free studio works without the optional companion bundle. [Bundle instructions](integrations/README.md) · [Native hosts](dotnet/README.md).
 
+## Reference formulas and worksheet organization
+
+Version 0.7 adds coordinate-preserving reference values: 3-D sheet spans for supported statistics and HSTACK/VSTACK, comma unions, whitespace intersections, dynamic colon ranges and reference-form INDEX. AREAS, ISREF, SHEET, SHEETS and seven A-suffixed statistics bring the inventory to 356 names. Formula copy/rename uses a shared scanner; deleted references are permanently repaired rather than reconnecting to a new sheet with the same name.
+
+```js
+const jan = book.Worksheets.Add('Jan');
+const mar = book.Worksheets.Add('Mar');
+const feb = book.Worksheets.Add('Feb', book.Worksheets.Count - 1);
+jan.GetCell('A1').Value = 10;
+feb.GetCell('A1').Value = 20;
+mar.GetCell('A1').Value = 30;
+book.ActiveWorksheet.GetCell('D1').Formula = '=SUM(Jan:Mar!A1)';
+book.Worksheets.Move(feb, book.Worksheets.Count - 1); // D1 changes from 60 to 40.
+book.Undo(); // Worksheet order, formula dependencies and D1 = 60 are restored.
+```
+
+Home/Formulas → **Reference tools** creates a live four-sheet example. **Move worksheet** opens the reusable control dialog with read-only/stale-state guards. The same operation is available through the core, worker/host, Office-style `worksheet.position` setter and typed C# client. [Reference contracts and limits](docs/reference-semantics.md).
+
 ## Excel compatibility and editing tools
 
 The [feature audit](docs/excel-feature-audit.md) inventories the implemented engine, controls, adapters and remaining Excel work. Version 0.6 adds all 12 database functions, reference-aware AGGREGATE/SUBTOTAL, MAKEARRAY, ISOMITTED and callable/recursive LAMBDA improvements. Availability inventories are generated and tested, not maintained as a parity percentage.
 
-Reusable range APIs now include `Capture`, `PasteSpecial`, `FillSeries` and `SpecialCells`. The grid exposes Paste special, Fill series and Go to special dialogs, with transpose/arithmetic paste, anchored date series, error handling and one-step undo. Home/Data/Formulas → **Calculation tools** opens executable examples; the default Formula lab also contains new calculations. [Editing API and explicit limits](docs/editing.md) · [Calculation contracts](docs/functions.md) · [Current qualification](docs/verification-0.6.md).
+Reusable range APIs now include `Capture`, `PasteSpecial`, `FillSeries` and `SpecialCells`. The grid exposes Paste special, Fill series and Go to special dialogs, with transpose/arithmetic paste, anchored date series, error handling and one-step undo. Home/Data/Formulas → **Calculation tools** opens executable examples; the default Formula lab also contains new calculations. [Editing API and explicit limits](docs/editing.md) · [Calculation contracts](docs/functions.md) · [Current qualification](docs/verification-0.7.md).
 
 ## Build, test and distribute
 

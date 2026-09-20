@@ -1,6 +1,6 @@
 {
   "name": "@wieslawsoltes/gridweb",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Reusable spreadsheet engine, virtualized web control, MVVM/React adapters and .NET shared-engine hosts",
   "type": "module",
   "license": "MIT",
@@ -33,8 +33,8 @@
     "test": "node --test tests/*.test.mjs",
     "build": "node scripts/build.mjs",
     "inventory": "node scripts/inventory.mjs",
-    "typecheck": "tsc --noEmit --strict --lib es2022,dom --module nodenext --moduleResolution nodenext tests/types.ts tests/references-types.ts tests/office-print-types.ts tests/collaboration-types.ts tests/pivot-types.ts tests/editing-types.ts",
-    "test:browser": "python tests/browser.py && python tests/features-browser.py && python tests/collaboration-browser.py && python tests/pivot-browser.py && python tests/editing-browser.py",
+    "typecheck": "tsc --noEmit --strict --lib es2022,dom --module nodenext --moduleResolution nodenext tests/types.ts tests/references-types.ts tests/office-print-types.ts tests/collaboration-types.ts tests/pivot-types.ts tests/editing-types.ts tests/reference-operators-types.ts",
+    "test:browser": "python tests/browser.py && python tests/features-browser.py && python tests/collaboration-browser.py && python tests/pivot-browser.py && python tests/editing-browser.py && python tests/reference-browser.py",
     "test:package": "node scripts/package-test.mjs",
     "check": "npm test && npm run typecheck && npm run build && npm run test:package",
     "dev": "node scripts/serve.mjs",
